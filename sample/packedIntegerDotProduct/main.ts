@@ -1,6 +1,14 @@
-import { GUI } from 'dat.gui';
 import packedWGSL from './packed.wgsl';
 import { quitIfWebGPUNotAvailableOrMissingFeatures } from '../util';
+
+const kSampleCases = [
+  { lhs: [1, -2, 3, -4], rhs: [-5, 6, -7, 8] },
+  { lhs: [-128, -128, -128, -128], rhs: [-128, -128, -128, -128] },
+  { lhs: [127, 127, 127, 127], rhs: [127, 127, 127, 127] },
+  { lhs: [1, 2, 3, 4], rhs: [4, 3, 2, 1] },
+] as const;
+
+const kWorkgroupSize = 64; // Same as in packed.wgsl
 
 const result = document.querySelector('#result') as HTMLElement;
 if (
@@ -15,20 +23,9 @@ if (
   const device = await adapter?.requestDevice();
   quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
-  const lhs = [
-    [1, -2, 3, -4],
-    [-128, -128, -128, -128],
-    [127, 127, 127, 127],
-    [1, 2, 3, 4],
-  ];
-  const rhs = [
-    [-5, 6, -7, 8],
-    [-128, -128, -128, -128],
-    [127, 127, 127, 127],
-    [4, 3, 2, 1],
-  ];
-
-  function createInputBuffer(vectors: number[][]) {
+  function createInputBuffer(
+    vectors: ReadonlyArray<readonly [number, number, number, number]>
+  ) {
     // Pack four signed 8-bit components into each u32, low byte first.
     // Masking preserves the two's-complement representation of negative values.
     const packed = new Uint32Array(
@@ -50,7 +47,7 @@ if (
     return buffer;
   }
 
-  const outputSize = lhs.length * Int32Array.BYTES_PER_ELEMENT;
+  const outputSize = kSampleCases.length * Int32Array.BYTES_PER_ELEMENT;
   const outputBuffer = device.createBuffer({
     size: outputSize,
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
@@ -63,12 +60,14 @@ if (
     layout: 'auto',
     compute: { module: device.createShaderModule({ code: packedWGSL }) },
   });
+  const inputBuffer = createInputBuffer(
+    kSampleCases.flatMap((c) => [c.lhs, c.rhs])
+  );
   const bindGroup = device.createBindGroup({
     layout: pipeline.getBindGroupLayout(0),
     entries: [
-      { binding: 0, resource: { buffer: createInputBuffer(lhs) } },
-      { binding: 1, resource: { buffer: createInputBuffer(rhs) } },
-      { binding: 2, resource: { buffer: outputBuffer } },
+      { binding: 0, resource: { buffer: inputBuffer } },
+      { binding: 1, resource: { buffer: outputBuffer } },
     ],
   });
 
@@ -76,7 +75,7 @@ if (
   const pass = encoder.beginComputePass();
   pass.setPipeline(pipeline);
   pass.setBindGroup(0, bindGroup);
-  pass.dispatchWorkgroups(Math.ceil(lhs.length / 64));
+  pass.dispatchWorkgroups(Math.ceil(kSampleCases.length / kWorkgroupSize));
   pass.end();
   encoder.copyBufferToBuffer(outputBuffer, 0, readbackBuffer, 0, outputSize);
   device.queue.submit([encoder.finish()]);
@@ -85,21 +84,16 @@ if (
   const results = new Int32Array(readbackBuffer.getMappedRange()).slice();
   readbackBuffer.unmap();
 
-  const settings = { example: 0 };
-  function showResult() {
-    const i = settings.example;
-    result.textContent = `a = [${lhs[i].join(', ')}]
-b = [${rhs[i].join(', ')}]
-dot4I8Packed(a, b) = ${results[i]}`;
+  for (const [i, sample] of kSampleCases.entries()) {
+    const expected =
+      sample.lhs[0] * sample.rhs[0] +
+      sample.lhs[1] * sample.rhs[1] +
+      sample.lhs[2] * sample.rhs[2] +
+      sample.lhs[3] * sample.rhs[3];
+    const lhs = sample.lhs.map((x) => x.toString().padStart(4)).join(', ');
+    const rhs = sample.rhs.map((x) => x.toString().padStart(4)).join(', ');
+    const out = results[i].toString().padStart(6);
+    const exp = expected.toString().padStart(6);
+    result.textContent += `\ndot4I8Packed of [${lhs}] by [${rhs}] gave ${out} (expecting ${exp})`;
   }
-  const gui = new GUI();
-  gui
-    .add(settings, 'example', {
-      'Mixed signs': 0,
-      'Minimum signed bytes': 1,
-      'Maximum signed bytes': 2,
-      'Positive components': 3,
-    })
-    .onChange(showResult);
-  showResult();
 }
