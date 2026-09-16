@@ -9,16 +9,19 @@
         color-scheme: light dark;
       }
       body {
-        min-height: 20em;
+        width: calc(100vw - 280px);
+        height: 400px;
+        overflow-y: hidden;
       }
       pre {
         white-space: pre-wrap;
+        height: 370px;
       }
     </style>
     <script defer src="main.js" type="module"></script>
     <script defer type="module" src="../../js/iframe-helper.js"></script>
   </head>
   <body>
-    <pre id="result">Computing packed integer dot products…</pre>
+    <pre id="output">Computing packed integer dot products…</pre>
   </body>
 </html>

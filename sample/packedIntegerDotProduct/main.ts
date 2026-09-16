@@ -1,26 +1,20 @@
+import { GUI } from 'dat.gui';
 import packedWGSL from './packed.wgsl';
 import { quitIfWebGPUNotAvailableOrMissingFeatures } from '../util';
-
-const kSampleCases = [
-  { lhs: [1, -2, 3, -4], rhs: [-5, 6, -7, 8] },
-  { lhs: [-128, -128, -128, -128], rhs: [-128, -128, -128, -128] },
-  { lhs: [127, 127, 127, 127], rhs: [127, 127, 127, 127] },
-  { lhs: [1, 2, 3, 4], rhs: [4, 3, 2, 1] },
-] as const;
-
-const kWorkgroupSize = 64; // Must match packed.wgsl
 
 type vec4i = readonly [number, number, number, number];
 // Pack four signed 8-bit components into a u32, low byte first.
 function pack4xI8([x, y, z, w]: vec4i): number {
   // `&` operator applies sign extension to i32 before operating.
   // `>>> 0` converts the final i32 to u32.
-  return (
-    (x & 0xff) | ((y & 0xff) << 8) | ((z & 0xff) << 16) | ((w & 0xff) << 24)
-  ) >>> 0;
+  /*prettier-ignore*/
+  return ((x & 0xff) |
+          ((y & 0xff) << 8) |
+          ((z & 0xff) << 16) |
+          ((w & 0xff) << 24)) >>> 0;
 }
 
-const result = document.querySelector('#result') as HTMLElement;
+const outputElement = document.querySelector('#output') as HTMLElement;
 if (
   !navigator.gpu?.wgslLanguageFeatures.has('packed_4x8_integer_dot_product')
 ) {
@@ -33,34 +27,26 @@ if (
   const device = await adapter?.requestDevice();
   quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
-  function createInputBuffer(vectors: vec4i[]) {
-    const packed = new Uint32Array(vectors.map(pack4xI8));
-    const buffer = device.createBuffer({
-      size: packed.byteLength,
-      usage: GPUBufferUsage.STORAGE,
-      mappedAtCreation: true,
-    });
-    new Uint32Array(buffer.getMappedRange()).set(packed);
-    buffer.unmap();
-    return buffer;
-  }
+  const kInputSize = 2 * Uint32Array.BYTES_PER_ELEMENT;
+  const inputBuffer = device.createBuffer({
+    size: kInputSize,
+    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE,
+  });
 
-  const outputSize = kSampleCases.length * Int32Array.BYTES_PER_ELEMENT;
+  const kOutputSize = Int32Array.BYTES_PER_ELEMENT;
   const outputBuffer = device.createBuffer({
-    size: outputSize,
+    size: kOutputSize,
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
   });
   const readbackBuffer = device.createBuffer({
-    size: outputSize,
+    size: kOutputSize,
     usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
   });
+
   const pipeline = await device.createComputePipelineAsync({
     layout: 'auto',
     compute: { module: device.createShaderModule({ code: packedWGSL }) },
   });
-  const inputBuffer = createInputBuffer(
-    kSampleCases.flatMap((c) => [c.lhs, c.rhs])
-  );
   const bindGroup = device.createBindGroup({
     layout: pipeline.getBindGroupLayout(0),
     entries: [
@@ -69,38 +55,71 @@ if (
     ],
   });
 
-  const encoder = device.createCommandEncoder();
-  const pass = encoder.beginComputePass();
-  pass.setPipeline(pipeline);
-  pass.setBindGroup(0, bindGroup);
-  pass.dispatchWorkgroups(Math.ceil(kSampleCases.length / kWorkgroupSize));
-  pass.end();
-  encoder.copyBufferToBuffer(outputBuffer, 0, readbackBuffer, 0, outputSize);
-  device.queue.submit([encoder.finish()]);
+  async function updateResult() {
+    // If an update is still in progress just wait until it's done.
+    if (readbackBuffer.mapState !== 'unmapped') {
+      setTimeout(updateResult, 0);
+      return;
+    }
 
-  await readbackBuffer.mapAsync(GPUMapMode.READ);
-  const results = new Int32Array(readbackBuffer.getMappedRange()).slice();
-  readbackBuffer.unmap();
+    const lhs = [settings.lhs0, settings.lhs1, settings.lhs2, settings.lhs3];
+    const rhs = [settings.rhs0, settings.rhs1, settings.rhs2, settings.rhs3];
 
-  for (const [i, sample] of kSampleCases.entries()) {
+    device.queue.writeBuffer(
+      inputBuffer,
+      0,
+      new Uint32Array([lhs, rhs].map(pack4xI8))
+    );
+    const encoder = device.createCommandEncoder();
+    const pass = encoder.beginComputePass();
+    pass.setPipeline(pipeline);
+    pass.setBindGroup(0, bindGroup);
+    pass.dispatchWorkgroups(1);
+    pass.end();
+    encoder.copyBufferToBuffer(outputBuffer, 0, readbackBuffer, 0, kOutputSize);
+    device.queue.submit([encoder.finish()]);
+
+    await readbackBuffer.mapAsync(GPUMapMode.READ);
+    const result = new Int32Array(readbackBuffer.getMappedRange())[0];
+
     // Result should be the same in JS, show that for comparison.
     const expected =
-      sample.lhs[0] * sample.rhs[0] +
-      sample.lhs[1] * sample.rhs[1] +
-      sample.lhs[2] * sample.rhs[2] +
-      sample.lhs[3] * sample.rhs[3];
+      lhs[0] * rhs[0] + lhs[1] * rhs[1] + lhs[2] * rhs[2] + lhs[3] * rhs[3];
 
-    const lhs = `[${sample.lhs
+    const lhsStr = `[${lhs
       .map((x) => x.toString().padStart(4))
-      .join(', ')}] (0x${pack4xI8(sample.lhs).toString(16).padStart(8, '0')})`;
-    const rhs = `[${sample.rhs
+      .join(', ')}] (0x${pack4xI8(lhs).toString(16).padStart(8, '0')})`;
+    const rhsStr = `[${rhs
       .map((x) => x.toString().padStart(4))
-      .join(', ')}] (0x${pack4xI8(sample.rhs).toString(16).padStart(8, '0')})`;
-    const out = results[i].toString().padStart(6);
-    const exp = expected.toString().padStart(6);
-    result.textContent += `
+      .join(', ')}] (0x${pack4xI8(rhs).toString(16).padStart(8, '0')})`;
+    const outStr = result.toString().padStart(6);
+    const expStr = expected.toString().padStart(6);
+    outputElement.textContent = `
 
-WGSL dot4I8Packed of ${lhs}
-                  by ${rhs} gave ${out} (JS gave ${exp})`;
+WGSL dot4I8Packed of ${lhsStr}
+                  by ${rhsStr} gave ${outStr} (JS gave ${expStr})`;
+
+    readbackBuffer.unmap();
   }
+
+  const settings = {
+    lhs0: 1,
+    lhs1: -2,
+    lhs2: 3,
+    lhs3: -4,
+    rhs0: -5,
+    rhs1: 6,
+    rhs2: -7,
+    rhs3: 8,
+  };
+  const gui = new GUI();
+  gui.add(settings, 'lhs0', -127, 128, 1).onChange(updateResult);
+  gui.add(settings, 'lhs1', -127, 128, 1).onChange(updateResult);
+  gui.add(settings, 'lhs2', -127, 128, 1).onChange(updateResult);
+  gui.add(settings, 'lhs3', -127, 128, 1).onChange(updateResult);
+  gui.add(settings, 'rhs0', -127, 128, 1).onChange(updateResult);
+  gui.add(settings, 'rhs1', -127, 128, 1).onChange(updateResult);
+  gui.add(settings, 'rhs2', -127, 128, 1).onChange(updateResult);
+  gui.add(settings, 'rhs3', -127, 128, 1).onChange(updateResult);
+  updateResult();
 }
