@@ -8,7 +8,17 @@ const kSampleCases = [
   { lhs: [1, 2, 3, 4], rhs: [4, 3, 2, 1] },
 ] as const;
 
-const kWorkgroupSize = 64; // Same as in packed.wgsl
+const kWorkgroupSize = 64; // Must match packed.wgsl
+
+type vec4i = readonly [number, number, number, number];
+// Pack four signed 8-bit components into a u32, low byte first.
+function pack4xI8([x, y, z, w]: vec4i): number {
+  // `&` operator applies sign extension to i32 before operating.
+  // `>>> 0` converts the final i32 to u32.
+  return (
+    (x & 0xff) | ((y & 0xff) << 8) | ((z & 0xff) << 16) | ((w & 0xff) << 24)
+  ) >>> 0;
+}
 
 const result = document.querySelector('#result') as HTMLElement;
 if (
@@ -23,20 +33,8 @@ if (
   const device = await adapter?.requestDevice();
   quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
-  function createInputBuffer(
-    vectors: ReadonlyArray<readonly [number, number, number, number]>
-  ) {
-    // Pack four signed 8-bit components into each u32, low byte first.
-    // Masking preserves the two's-complement representation of negative values.
-    const packed = new Uint32Array(
-      vectors.map(
-        ([x, y, z, w]) =>
-          (x & 0xff) |
-          ((y & 0xff) << 8) |
-          ((z & 0xff) << 16) |
-          ((w & 0xff) << 24)
-      )
-    );
+  function createInputBuffer(vectors: vec4i[]) {
+    const packed = new Uint32Array(vectors.map(pack4xI8));
     const buffer = device.createBuffer({
       size: packed.byteLength,
       usage: GPUBufferUsage.STORAGE,
@@ -85,15 +83,24 @@ if (
   readbackBuffer.unmap();
 
   for (const [i, sample] of kSampleCases.entries()) {
+    // Result should be the same in JS, show that for comparison.
     const expected =
       sample.lhs[0] * sample.rhs[0] +
       sample.lhs[1] * sample.rhs[1] +
       sample.lhs[2] * sample.rhs[2] +
       sample.lhs[3] * sample.rhs[3];
-    const lhs = sample.lhs.map((x) => x.toString().padStart(4)).join(', ');
-    const rhs = sample.rhs.map((x) => x.toString().padStart(4)).join(', ');
+
+    const lhs = `[${sample.lhs
+      .map((x) => x.toString().padStart(4))
+      .join(', ')}] (0x${pack4xI8(sample.lhs).toString(16).padStart(8, '0')})`;
+    const rhs = `[${sample.rhs
+      .map((x) => x.toString().padStart(4))
+      .join(', ')}] (0x${pack4xI8(sample.rhs).toString(16).padStart(8, '0')})`;
     const out = results[i].toString().padStart(6);
     const exp = expected.toString().padStart(6);
-    result.textContent += `\ndot4I8Packed of [${lhs}] by [${rhs}] gave ${out} (expecting ${exp})`;
+    result.textContent += `
+
+WGSL dot4I8Packed of ${lhs}
+                  by ${rhs} gave ${out} (JS gave ${exp})`;
   }
 }
