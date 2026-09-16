@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import ts from 'typescript';
 
 const referenceModuleUrl = new URL(
   '../sample/packedIntegerDotProduct/reference.ts',
@@ -7,16 +9,16 @@ const referenceModuleUrl = new URL(
 );
 
 async function loadReferenceModule() {
-  try {
-    return await import(referenceModuleUrl);
-  } catch (error) {
-    if (error?.code === 'ERR_MODULE_NOT_FOUND') {
-      assert.fail(
-        'packed integer dot-product reference and route contract is missing'
-      );
-    }
-    throw error;
-  }
+  // Node 20 cannot import TypeScript directly. Compile this standalone module
+  // with the same TypeScript dependency used by the sample build.
+  const source = await readFile(referenceModuleUrl, 'utf8');
+  const { outputText } = ts.transpileModule(source, {
+    compilerOptions: {
+      target: ts.ScriptTarget.ES2022,
+      module: ts.ModuleKind.ESNext,
+    },
+  });
+  return import(`data:text/javascript,${encodeURIComponent(outputText)}`);
 }
 
 test('signed packed dot products match scalar arithmetic', async () => {
