@@ -18,7 +18,7 @@ const outputElement = document.querySelector('#output') as HTMLElement;
 if (
   !navigator.gpu?.wgslLanguageFeatures.has('packed_4x8_integer_dot_product')
 ) {
-  result.textContent =
+  outputElement.textContent =
     "This sample requires the WGSL language feature 'packed_4x8_integer_dot_product'.";
 } else {
   const adapter = await navigator.gpu.requestAdapter({
@@ -113,13 +113,13 @@ WGSL dot4I8Packed of ${lhsStr}
     rhs3: 8,
   };
   const gui = new GUI();
-  gui.add(settings, 'lhs0', -127, 128, 1).onChange(updateResult);
-  gui.add(settings, 'lhs1', -127, 128, 1).onChange(updateResult);
-  gui.add(settings, 'lhs2', -127, 128, 1).onChange(updateResult);
-  gui.add(settings, 'lhs3', -127, 128, 1).onChange(updateResult);
-  gui.add(settings, 'rhs0', -127, 128, 1).onChange(updateResult);
-  gui.add(settings, 'rhs1', -127, 128, 1).onChange(updateResult);
-  gui.add(settings, 'rhs2', -127, 128, 1).onChange(updateResult);
-  gui.add(settings, 'rhs3', -127, 128, 1).onChange(updateResult);
+  gui.add(settings, 'lhs0', -128, 127, 1).onChange(updateResult);
+  gui.add(settings, 'lhs1', -128, 127, 1).onChange(updateResult);
+  gui.add(settings, 'lhs2', -128, 127, 1).onChange(updateResult);
+  gui.add(settings, 'lhs3', -128, 127, 1).onChange(updateResult);
+  gui.add(settings, 'rhs0', -128, 127, 1).onChange(updateResult);
+  gui.add(settings, 'rhs1', -128, 127, 1).onChange(updateResult);
+  gui.add(settings, 'rhs2', -128, 127, 1).onChange(updateResult);
+  gui.add(settings, 'rhs3', -128, 127, 1).onChange(updateResult);
   updateResult();
 }
