@@ -120,7 +120,7 @@ if (
     const lhs = vector('lhs');
     const rhs = vector('rhs');
     view.update(lhs, rhs, pack4xI8(lhs), pack4xI8(rhs));
-    outputElement.textContent = 'GPU computing…';
+    outputElement.textContent = '…';
     if (computing) return;
     computing = true;
     try {
@@ -133,8 +133,7 @@ if (
         const rhs = vector('rhs');
         const result = await computeDot(lhs, rhs);
         if (submittedRevision === revision) {
-          const expected = lhs.reduce((sum, x, i) => sum + x * rhs[i], 0);
-          outputElement.textContent = `GPU ${result} · JS ${expected}`;
+          outputElement.textContent = String(result);
         }
       } while (submittedRevision !== revision);
     } catch (error) {

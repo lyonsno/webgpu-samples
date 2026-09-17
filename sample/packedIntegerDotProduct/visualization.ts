@@ -46,6 +46,12 @@ export function createVisualization(
     if (!vectors) return;
     const { lhs, rhs } = vectors;
     const [side, component] = selected;
+    for (const s of ['lhs', 'rhs'] as const) {
+      document.querySelector(`#word-${s}`)!.textContent = `0x${words[s]
+        .toString(16)
+        .padStart(8, '0')
+        .toUpperCase()}`;
+    }
     for (const button of bytes.querySelectorAll<HTMLButtonElement>('button')) {
       const key = button.dataset.byte!;
       const s = key.slice(0, 3) as Side;

@@ -113,7 +113,7 @@
       }
       .products,
       #sum,
-      #output {
+      #operation {
         font-family: ui-monospace, monospace;
       }
       .products {
@@ -125,9 +125,17 @@
       #sum {
         font-size: 22px;
       }
+      #operation {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 0 0.5ch;
+        margin: 12px 0 20px;
+        font-size: clamp(16px, 2vw, 22px);
+        overflow-wrap: anywhere;
+      }
       #output {
-        display: block;
-        margin-top: 4px;
+        font-weight: 700;
       }
       .byte-row {
         display: grid;
@@ -219,26 +227,35 @@
   </head>
   <body>
     <main>
-      <h1>Packed integer dot product</h1>
+      <h1>Four signed bytes. One dot product.</h1>
       <p class="hint">
-        Two four-component vectors. Four signed bytes per word. One dot product.
+        A WebGPU operation on two packed 32-bit words. Change a component to
+        follow its contribution to the result.
       </p>
-      <output id="output" aria-live="polite"
-        >Computing packed integer dot product…</output
-      >
+      <div id="operation" aria-label="WGSL packed dot product">
+        <span>dot4I8Packed(</span>
+        <span id="word-lhs" class="lhs" aria-label="Packed LHS">…</span>
+        <span>,</span>
+        <span id="word-rhs" class="rhs" aria-label="Packed RHS">…</span>
+        <span>) →</span>
+        <output id="output" aria-label="GPU result" aria-live="polite"
+          >Computing…</output
+        >
+      </div>
       <div id="explorer" class="layout" hidden>
         <section aria-label="Vector geometry and encoding">
-          <h2>See the vectors</h2>
+          <h2>Unpack the four products</h2>
           <p class="hint">
-            Each plot shows two coordinates. Their dot products add to the full
-            result. Axes fit the values shown.
+            Multiply matching components, then add. Each plot shows two of the
+            four products; both pairs contribute to the result. Axes fit the
+            values shown.
           </p>
           <div id="planes"></div>
           <div class="total">
-            Four-component dot product<br /><strong id="sum"></strong>
+            Add the two pairs<br /><strong id="sum"></strong>
           </div>
           <section class="card" aria-label="Packed words">
-            <h2>Inspect the packed bytes</h2>
+            <h2>Four components packed into each word</h2>
             <p class="hint">
               Select a byte. Its signed value is below its hex digits. Component
               0 occupies the low byte, at the right.
@@ -247,16 +264,17 @@
             <h2 id="selected-byte"></h2>
             <div id="bits" aria-label="Selected byte bits, high to low"></div>
             <small
-              >Click a bit to toggle it. The labels are signed bit weights: the
-              high bit contributes −128.</small
+              >Flip a bit to change this component, its coordinate, and its
+              product. The labels are signed bit weights: the high bit
+              contributes −128.</small
             >
           </section>
         </section>
         <aside class="card">
           <h2>Move a component</h2>
           <p class="hint">
-            Drag a slider or enter an integer from −128 to 127. Watch its arrow
-            and packed byte change together.
+            Drag a slider or enter an integer from −128 to 127. Watch its arrow,
+            packed byte, and product change together.
           </p>
           <div id="controls"></div>
           <p>
