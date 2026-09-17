@@ -1,10 +1,10 @@
 import { GUI } from 'dat.gui';
 import packedWGSL from './packed.wgsl';
 import { quitIfWebGPUNotAvailableOrMissingFeatures } from '../util';
+import { createVisualization, type Side, type Vector } from './visualization';
 
-type vec4i = readonly [number, number, number, number];
 // Pack four signed 8-bit components into a u32, low byte first.
-function pack4xI8([x, y, z, w]: vec4i): number {
+function pack4xI8([x, y, z, w]: Vector): number {
   // `&` operator applies sign extension to i32 before operating.
   // `>>> 0` converts the final i32 to u32.
   /*prettier-ignore*/
@@ -55,16 +55,7 @@ if (
     ],
   });
 
-  async function updateResult() {
-    // If an update is still in progress just wait until it's done.
-    if (readbackBuffer.mapState !== 'unmapped') {
-      setTimeout(updateResult, 0);
-      return;
-    }
-
-    const lhs = [settings.lhs0, settings.lhs1, settings.lhs2, settings.lhs3];
-    const rhs = [settings.rhs0, settings.rhs1, settings.rhs2, settings.rhs3];
-
+  async function computeDot(lhs: Vector, rhs: Vector) {
     device.queue.writeBuffer(
       inputBuffer,
       0,
@@ -81,25 +72,8 @@ if (
 
     await readbackBuffer.mapAsync(GPUMapMode.READ);
     const result = new Int32Array(readbackBuffer.getMappedRange())[0];
-
-    // Result should be the same in JS, show that for comparison.
-    const expected =
-      lhs[0] * rhs[0] + lhs[1] * rhs[1] + lhs[2] * rhs[2] + lhs[3] * rhs[3];
-
-    const lhsStr = `[${lhs
-      .map((x) => x.toString().padStart(4))
-      .join(', ')}] (0x${pack4xI8(lhs).toString(16).padStart(8, '0')})`;
-    const rhsStr = `[${rhs
-      .map((x) => x.toString().padStart(4))
-      .join(', ')}] (0x${pack4xI8(rhs).toString(16).padStart(8, '0')})`;
-    const outStr = result.toString().padStart(6);
-    const expStr = expected.toString().padStart(6);
-    outputElement.textContent = `
-
-WGSL dot4I8Packed of ${lhsStr}
-                  by ${rhsStr} gave ${outStr} (JS gave ${expStr})`;
-
     readbackBuffer.unmap();
+    return result;
   }
 
   const settings = {
@@ -112,14 +86,63 @@ WGSL dot4I8Packed of ${lhsStr}
     rhs2: -7,
     rhs3: 8,
   };
-  const gui = new GUI();
-  gui.add(settings, 'lhs0', -128, 127, 1).onChange(updateResult);
-  gui.add(settings, 'lhs1', -128, 127, 1).onChange(updateResult);
-  gui.add(settings, 'lhs2', -128, 127, 1).onChange(updateResult);
-  gui.add(settings, 'lhs3', -128, 127, 1).onChange(updateResult);
-  gui.add(settings, 'rhs0', -128, 127, 1).onChange(updateResult);
-  gui.add(settings, 'rhs1', -128, 127, 1).onChange(updateResult);
-  gui.add(settings, 'rhs2', -128, 127, 1).onChange(updateResult);
-  gui.add(settings, 'rhs3', -128, 127, 1).onChange(updateResult);
+  const gui = new GUI({ autoPlace: false, width: 246 });
+  document.querySelector('#controls')!.append(gui.domElement);
+  const view = createVisualization((side, component, value) => {
+    const key = `${side}${component}` as keyof typeof settings;
+    settings[key] = value;
+    gui.updateDisplay();
+    updateResult();
+  });
+  for (const side of ['lhs', 'rhs'] as const) {
+    for (let component = 0; component < 4; component++) {
+      const key = `${side}${component}` as keyof typeof settings;
+      const control = gui.add(settings, key, -128, 127, 1);
+      control.domElement
+        .querySelector('input')!
+        .setAttribute('aria-label', key);
+      control.onChange(() => {
+        view.select(side, component);
+        updateResult();
+      });
+    }
+  }
+  const vector = (side: Side): Vector => [
+    settings[`${side}0`],
+    settings[`${side}1`],
+    settings[`${side}2`],
+    settings[`${side}3`],
+  ];
+  let revision = 0;
+  let computing = false;
+  async function updateResult() {
+    revision++;
+    const lhs = vector('lhs');
+    const rhs = vector('rhs');
+    view.update(lhs, rhs, pack4xI8(lhs), pack4xI8(rhs));
+    outputElement.textContent = 'GPU computing…';
+    if (computing) return;
+    computing = true;
+    try {
+      // A sweep may change the inputs during readback. Compute the latest pair
+      // next, and never label an older GPU result as belonging to the new view.
+      let submittedRevision;
+      do {
+        submittedRevision = revision;
+        const lhs = vector('lhs');
+        const rhs = vector('rhs');
+        const result = await computeDot(lhs, rhs);
+        if (submittedRevision === revision) {
+          const expected = lhs.reduce((sum, x, i) => sum + x * rhs[i], 0);
+          outputElement.textContent = `GPU ${result} · JS ${expected}`;
+        }
+      } while (submittedRevision !== revision);
+    } catch (error) {
+      outputElement.textContent = `GPU calculation failed: ${error}`;
+    } finally {
+      computing = false;
+    }
+  }
+  (document.querySelector('#explorer') as HTMLElement).hidden = false;
   updateResult();
 }

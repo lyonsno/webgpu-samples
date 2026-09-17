@@ -9,19 +9,265 @@
         color-scheme: light dark;
       }
       body {
-        width: calc(100vw - 280px);
-        height: 400px;
-        overflow-y: hidden;
+        margin: 0;
+        padding: 24px;
+        font: 14px/1.5 system-ui, sans-serif;
+        background: #111923;
+        color: #e4ecf3;
       }
-      pre {
-        white-space: pre-wrap;
-        height: 370px;
+      * {
+        box-sizing: border-box;
+      }
+      h1 {
+        margin: 0;
+        font-size: 24px;
+      }
+      h2 {
+        margin: 0 0 12px;
+        font-size: 16px;
+      }
+      p {
+        margin: 8px 0 16px;
+      }
+      small,
+      .hint {
+        color: #afbdcb;
+      }
+      main {
+        max-width: 1140px;
+        margin: auto;
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 280px;
+        gap: 20px;
+      }
+      .card,
+      figure {
+        background: #192533;
+        border: 1px solid #3b4b5e;
+        border-radius: 8px;
+        padding: 16px;
+      }
+      #planes {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+      figure {
+        margin: 0;
+        padding: 12px;
+      }
+      figcaption {
+        font-weight: 650;
+      }
+      svg {
+        display: block;
+        width: 100%;
+      }
+      svg text {
+        fill: #afbdcb;
+        font: 11px system-ui;
+      }
+      .grid {
+        fill: none;
+        stroke: #304153;
+      }
+      .axis {
+        fill: none;
+        stroke: #75879a;
+      }
+      .lhs {
+        color: #72d6fa;
+        stroke: #72d6fa;
+        fill: #72d6fa;
+      }
+      .rhs {
+        color: #ffc078;
+        stroke: #ffc078;
+        fill: #ffc078;
+      }
+      .arrow {
+        stroke-width: 2.5;
+      }
+      .projection {
+        stroke: #b4c2d1;
+        stroke-dasharray: 4 4;
+      }
+      .projection-foot {
+        stroke: #c3d1e0;
+        stroke-width: 5;
+        opacity: 0.35;
+      }
+      .projection-point,
+      .origin {
+        fill: #e4ecf3;
+      }
+      .selected-plane {
+        border-color: #8aa2b8;
+      }
+      .coordinates {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 12px;
+      }
+      .products,
+      #sum,
+      #output {
+        font-family: ui-monospace, monospace;
+      }
+      .products {
+        margin: 6px 0;
+      }
+      .total {
+        margin: 12px 0 20px;
+      }
+      #sum {
+        font-size: 22px;
+      }
+      #output {
+        display: block;
+        margin-top: 4px;
+      }
+      .byte-row {
+        display: grid;
+        grid-template-columns: 40px 20px repeat(4, minmax(0, 1fr));
+        align-items: center;
+        gap: 8px;
+        margin: 8px 0;
+      }
+      button {
+        color: inherit;
+        background: #111923;
+        border: 1px solid #61778c;
+        border-radius: 4px;
+        padding: 6px;
+        cursor: pointer;
+        font: inherit;
+      }
+      button b,
+      button small {
+        display: block;
+      }
+      button b {
+        font: 20px ui-monospace, monospace;
+      }
+      button[aria-pressed='true'] {
+        background: #314961;
+        border-color: #c3e8ff;
+      }
+      button:focus-visible {
+        outline: 3px solid #fff;
+        outline-offset: 2px;
+      }
+      #bits {
+        display: grid;
+        grid-template-columns: repeat(8, minmax(0, 1fr));
+        gap: 4px;
+        margin: 10px 0;
+      }
+      #bits button:nth-child(4) {
+        margin-right: 6px;
+      }
+      #bits button:nth-child(5) {
+        margin-left: 6px;
+      }
+      #bits small {
+        font: 11px ui-monospace, monospace;
+      }
+      #controls {
+        margin: 12px 0;
+      }
+      #controls .dg {
+        float: none;
+      }
+      aside {
+        align-self: start;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      @media (max-width: 900px) {
+        .layout {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        aside {
+          grid-row: 1;
+        }
+        #controls .dg {
+          width: 100% !important;
+        }
+      }
+      @media (max-width: 520px) {
+        body {
+          padding: 12px;
+        }
+        #planes {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        .byte-row {
+          gap: 4px;
+          grid-template-columns: 32px 16px repeat(4, minmax(0, 1fr));
+        }
       }
     </style>
     <script defer src="main.js" type="module"></script>
     <script defer type="module" src="../../js/iframe-helper.js"></script>
   </head>
   <body>
-    <pre id="output">Computing packed integer dot products…</pre>
+    <main>
+      <h1>Packed integer dot product</h1>
+      <p class="hint">
+        Two four-component vectors. Four signed bytes per word. One dot product.
+      </p>
+      <output id="output" aria-live="polite"
+        >Computing packed integer dot product…</output
+      >
+      <div id="explorer" class="layout" hidden>
+        <section aria-label="Vector geometry and encoding">
+          <h2>See the vectors</h2>
+          <p class="hint">
+            Each plot shows two coordinates. Their dot products add to the full
+            result. Axes fit the values shown.
+          </p>
+          <div id="planes"></div>
+          <div class="total">
+            Four-component dot product<br /><strong id="sum"></strong>
+          </div>
+          <section class="card" aria-label="Packed words">
+            <h2>Inspect the packed bytes</h2>
+            <p class="hint">
+              Select a byte. Its signed value is below its hex digits. Component
+              0 occupies the low byte, at the right.
+            </p>
+            <div id="bytes"></div>
+            <h2 id="selected-byte"></h2>
+            <div id="bits" aria-label="Selected byte bits, high to low"></div>
+            <small
+              >Click a bit to toggle it. The labels are signed bit weights: the
+              high bit contributes −128.</small
+            >
+          </section>
+        </section>
+        <aside class="card">
+          <h2>Move a component</h2>
+          <p class="hint">
+            Drag a slider or enter an integer from −128 to 127. Watch its arrow
+            and packed byte change together.
+          </p>
+          <div id="controls"></div>
+          <p>
+            <span class="lhs">LHS: blue</span><br /><span class="rhs"
+              >RHS: orange</span
+            >
+          </p>
+          <small
+            >Try sweeping a component from −1 to 0: one spatial step changes all
+            eight bits. The plots explain the mathematics, not GPU execution
+            order.</small
+          >
+        </aside>
+      </div>
+    </main>
   </body>
 </html>
