@@ -22,7 +22,11 @@ export function createVisualization(
     for (const component of [3, 2, 1, 0]) {
       const button = document.createElement('button');
       button.dataset.byte = `${side}${component}`;
-      button.addEventListener('click', () => select(side, component));
+      button.addEventListener('click', () => {
+        select(side, component);
+        (document.querySelector('#bit-details') as HTMLDetailsElement).open =
+          true;
+      });
       row.append(button);
     }
     bytes.append(row);
@@ -151,12 +155,11 @@ export function createVisualization(
       </figure>`;
       })
       .join('');
-    const partials = [0, 2].map(
-      (i) => lhs[i] * rhs[i] + lhs[i + 1] * rhs[i + 1]
-    );
-    document.querySelector('#sum')!.textContent = `${partials[0]} + (${
-      partials[1]
-    }) = ${partials[0] + partials[1]}`;
+    const terms = lhs.map((value, i) => `(${value}) × (${rhs[i]})`);
+    const sum = lhs.reduce((total, value, i) => total + value * rhs[i], 0);
+    document.querySelector('#sum')!.textContent = `${terms.join(
+      ' + '
+    )} = ${sum}`;
   }
 
   return {

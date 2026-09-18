@@ -151,7 +151,8 @@
         margin: 12px 0 20px;
       }
       #sum {
-        font-size: 22px;
+        font-size: clamp(14px, 1.6vw, 18px);
+        overflow-wrap: anywhere;
       }
       #operation {
         display: flex;
@@ -272,52 +273,32 @@
           four-value group from a sum below.
         </p>
       </section>
-      <h2>One group of four, computed by WebGPU</h2>
-      <div id="operation" aria-label="WGSL packed dot product">
-        <span>dot4I8Packed(</span>
-        <span id="word-lhs" class="lhs" aria-label="Packed inputs">…</span>
-        <span>,</span>
-        <span id="word-rhs" class="rhs" aria-label="Packed weights">…</span>
-        <span>) →</span>
-        <output id="output" aria-label="GPU result" aria-live="polite"
-          >Computing…</output
-        >
-      </div>
       <div id="explorer" class="layout" hidden>
-        <section aria-label="Vector geometry and encoding">
-          <h2>Inputs × weights → contribution to one output</h2>
-          <p class="hint">
-            Each arrow uses two channel values as coordinates. Add both plots'
-            contributions for the four-input sum. Inputs pointing along the
-            weight direction contribute positively; against it, negatively. Axes
-            fit the values shown.
-          </p>
-          <div id="planes"></div>
+        <section aria-label="Values, packing, and the GPU operation">
+          <h2>1. Multiply matching values, then add</h2>
           <div class="total">
-            This group's contribution<br /><strong id="sum"></strong>
+            <span class="lhs">Inputs</span> × <span class="rhs">weights</span>:
+            this group's contribution<br /><strong id="sum"></strong>
           </div>
           <section class="card" aria-label="Packed words">
-            <h2>Same values, packed for the GPU</h2>
+            <h2>2. Pack each group into one word</h2>
             <p class="hint">
-              Each pair of hex digits stores one 8-bit value; its signed value
-              is underneath. Four bytes make one 32-bit word. Select a byte to
-              see its bits. Channel 0 is at the right.
+              Each tile shows one value as two hex digits, with the signed
+              decimal value underneath. Read the four hex pairs together to get
+              one 32-bit word. Channel 0 is at the right.
             </p>
             <div id="bytes"></div>
-            <h2 id="selected-byte"></h2>
-            <div id="bits" aria-label="Selected byte bits, high to low"></div>
-            <small
-              >Flip a bit to change this value and its product. Each bit adds
-              the amount below it; the high bit contributes −128. Packing
-              preserves the integers—it is not the quantization step.</small
-            >
+            <p class="hint">
+              Packing preserves these integers; quantization happened earlier.
+              Select a tile to explore its binary encoding below.
+            </p>
           </section>
         </section>
         <aside class="card">
           <h2>Change an input or weight</h2>
           <p class="hint">
-            Drag a slider or enter −128 to 127. Watch its arrow, packed byte,
-            and contribution change together.
+            Drag a slider or enter −128 to 127. Watch the matching value, packed
+            byte, and sum change together.
           </p>
           <div id="controls"></div>
           <p>
@@ -327,12 +308,47 @@
             >
           </p>
           <p id="prediction"></p>
-          <small
-            >These are illustrative integers, not a running model. The plots
-            explain the mathematics, not GPU execution order.</small
-          >
+          <small>These are illustrative integers, not a running model.</small>
         </aside>
       </div>
+      <section class="details" aria-label="GPU operation">
+        <h2>3. Pass the two words to WebGPU</h2>
+        <div id="operation" aria-label="WGSL packed dot product">
+          <span>dot4I8Packed(</span>
+          <span id="word-lhs" class="lhs" aria-label="Packed inputs">…</span>
+          <span>,</span>
+          <span id="word-rhs" class="rhs" aria-label="Packed weights">…</span>
+          <span>) →</span>
+          <output id="output" aria-label="GPU result" aria-live="polite"
+            >Computing…</output
+          >
+        </div>
+        <p class="hint intro">
+          The WGSL builtin reads four signed bytes from each word and computes
+          the multiply-and-add sum above. The result here comes from the GPU.
+        </p>
+      </section>
+      <details id="bit-details" class="details card">
+        <summary>Inside a byte: signed bits</summary>
+        <p id="selected-byte"></p>
+        <div id="bits" aria-label="Selected byte bits, high to low"></div>
+        <p class="hint">
+          Flip a bit to change the selected value and its product. Each set bit
+          adds the amount below it; the high bit contributes −128. This is the
+          two's-complement encoding of a signed 8-bit integer.
+        </p>
+      </details>
+      <details class="details" id="geometry-details">
+        <summary>Another view: dot products in space</summary>
+        <p class="hint intro">
+          Each arrow uses two channel values as coordinates. Add both plots'
+          contributions for the four-input sum. Inputs pointing along the weight
+          direction contribute positively; against it, negatively. The dashed
+          line projects the input arrow onto that direction. Axes fit the values
+          shown. These plots explain the mathematics, not GPU execution order.
+        </p>
+        <div id="planes"></div>
+      </details>
       <details class="details intro">
         <summary>From four values to a neural-network layer</summary>
         <p>
