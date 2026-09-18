@@ -9,6 +9,7 @@ export function createVisualization(
   const bytes = document.querySelector('#bytes') as HTMLElement;
   const bits = document.querySelector('#bits') as HTMLElement;
   const selectedLabel = document.querySelector('#selected-byte') as HTMLElement;
+  const roles = { lhs: 'Input', rhs: 'Weight' };
   let selected: [Side, number] = ['lhs', 0];
   let vectors: Record<Side, Vector>;
   let words: Record<Side, number>;
@@ -17,7 +18,7 @@ export function createVisualization(
   for (const side of ['lhs', 'rhs'] as const) {
     const row = document.createElement('div');
     row.className = `byte-row ${side}`;
-    row.innerHTML = `<strong>${side.toUpperCase()}</strong><span>0x</span>`;
+    row.innerHTML = `<strong>${roles[side]}s</strong><span>0x</span>`;
     for (const component of [3, 2, 1, 0]) {
       const button = document.createElement('button');
       button.dataset.byte = `${side}${component}`;
@@ -63,16 +64,19 @@ export function createVisualization(
       button.innerHTML = `<small>c${i}</small><b>${hex}</b><small>${vectors[s][i]}</small>`;
       button.setAttribute(
         'aria-label',
-        `${s} component ${i}: ${vectors[s][i]}, hex ${hex}`
+        `${roles[s]} ${i}: ${vectors[s][i]}, hex ${hex}`
       );
       button.setAttribute(
         'aria-pressed',
         String(s === side && i === component)
       );
     }
-    selectedLabel.textContent = `${side.toUpperCase()} component ${component} = ${
-      vectors[side][component]
-    }`;
+    selectedLabel.textContent = `${roles[side]} ${component} = ${vectors[side][component]}`;
+    const step = vectors[side][component] === 127 ? -1 : 1;
+    const other = vectors[side === 'lhs' ? 'rhs' : 'lhs'][component];
+    document.querySelector('#prediction')!.textContent = `Try ${
+      step > 0 ? '+1' : '−1'
+    } to ${roles[side]} ${component}: the sum changes by ${step * other}.`;
     for (const button of bits.querySelectorAll<HTMLButtonElement>('button')) {
       const bit = Number(button.dataset.bit);
       const on = (vectors[side][component] >>> bit) & 1;
@@ -107,11 +111,11 @@ export function createVisualization(
           `<line class="${name} arrow" x1="0" y1="0" x2="${x}" y2="${y}" marker-end="url(#${name}-${start})" />`;
         const selectedPlane = component >= start && component < start + 2;
         return `<figure class="${selectedPlane ? 'selected-plane' : ''}">
-        <figcaption>Components ${start} & ${start + 1}</figcaption>
+        <figcaption>Channels ${start} & ${start + 1}</figcaption>
         <svg data-plane="${start}" viewBox="-160 -150 320 300" role="img"
-          aria-label="Components ${start}, ${start + 1}: LHS ${a.join(
+          aria-label="Channels ${start}, ${start + 1}: inputs ${a.join(
           ', '
-        )}, RHS ${b.join(', ')}. Partial dot product ${dot}.">
+        )}, weights ${b.join(', ')}. Contribution ${dot}.">
           <defs>${(['lhs', 'rhs'] as const)
             .map(
               (name) =>
@@ -133,16 +137,16 @@ export function createVisualization(
           ${arrow(bx, by, 'rhs')}${arrow(ax, ay, 'lhs')}
           <circle class="origin" r="2.5" />
         </svg>
-        <div class="coordinates"><span class="lhs">LHS (${a.join(
+        <div class="coordinates"><span class="lhs">Inputs (${a.join(
           ', '
-        )})</span> <span class="rhs">RHS (${b.join(', ')})</span></div>
+        )})</span> <span class="rhs">Weights (${b.join(', ')})</span></div>
         <div class="products">(${a[0]}) × (${b[0]}) + (${a[1]}) × (${
           b[1]
         }) = <strong>${dot}</strong></div>
         <small>${
           lengthSquared
-            ? 'Dashed: LHS projected onto the RHS line.'
-            : 'RHS is zero: projection has no direction.'
+            ? 'Dashed: inputs projected onto the weight direction.'
+            : 'Zero weights: this pair contributes nothing.'
         }</small>
       </figure>`;
       })

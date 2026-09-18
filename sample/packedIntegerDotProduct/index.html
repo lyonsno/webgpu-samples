@@ -29,6 +29,34 @@
       p {
         margin: 8px 0 16px;
       }
+      a {
+        color: #72d6fa;
+      }
+      .intro {
+        max-width: 88ch;
+      }
+      .context {
+        border-left: 3px solid #75879a;
+        padding-left: 14px;
+        margin: 20px 0;
+      }
+      .context h2 {
+        margin-bottom: 6px;
+      }
+      .context p {
+        margin-bottom: 0;
+      }
+      .details {
+        margin-top: 20px;
+      }
+      summary {
+        cursor: pointer;
+        font-weight: 650;
+      }
+      #prediction {
+        border-left: 2px solid #afbdcb;
+        padding-left: 10px;
+      }
       small,
       .hint {
         color: #afbdcb;
@@ -139,7 +167,7 @@
       }
       .byte-row {
         display: grid;
-        grid-template-columns: 40px 20px repeat(4, minmax(0, 1fr));
+        grid-template-columns: 58px 20px repeat(4, minmax(0, 1fr));
         align-items: center;
         gap: 8px;
         margin: 8px 0;
@@ -218,7 +246,7 @@
         }
         .byte-row {
           gap: 4px;
-          grid-template-columns: 32px 16px repeat(4, minmax(0, 1fr));
+          grid-template-columns: 54px 16px repeat(4, minmax(0, 1fr));
         }
       }
     </style>
@@ -227,16 +255,28 @@
   </head>
   <body>
     <main>
-      <h1>Four signed bytes. One dot product.</h1>
-      <p class="hint">
-        A WebGPU operation on two packed 32-bit words. Change a component to
-        follow its contribution to the result.
+      <h1>Packed integer dot products</h1>
+      <p class="intro">
+        A dot product multiplies matching values in two lists, then adds the
+        results. The packed version works directly on four pairs of 8-bit
+        integers, helping quantized neural networks compute with compact data.
       </p>
+      <section class="context intro" aria-label="Neural-network example">
+        <h2>Why a vision model uses this</h2>
+        <p>
+          At each image location, a channel-mixing layer combines
+          <span class="lhs">input features</span> with
+          <span class="rhs">learned weights</span> to produce a new feature.
+          Quantization approximates these numbers with small integers. Explore
+          one group of four from that weighted sum below.
+        </p>
+      </section>
+      <h2>One group of four, computed by WebGPU</h2>
       <div id="operation" aria-label="WGSL packed dot product">
         <span>dot4I8Packed(</span>
-        <span id="word-lhs" class="lhs" aria-label="Packed LHS">…</span>
+        <span id="word-lhs" class="lhs" aria-label="Packed inputs">…</span>
         <span>,</span>
-        <span id="word-rhs" class="rhs" aria-label="Packed RHS">…</span>
+        <span id="word-rhs" class="rhs" aria-label="Packed weights">…</span>
         <span>) →</span>
         <output id="output" aria-label="GPU result" aria-live="polite"
           >Computing…</output
@@ -244,51 +284,85 @@
       </div>
       <div id="explorer" class="layout" hidden>
         <section aria-label="Vector geometry and encoding">
-          <h2>Unpack the four products</h2>
+          <h2>Inputs × weights → contribution to one output</h2>
           <p class="hint">
-            Multiply matching components, then add. Each plot shows two of the
-            four products; both pairs contribute to the result. Axes fit the
-            values shown.
+            Each arrow uses two channel values as coordinates. Add both plots'
+            contributions for the four-input sum. Inputs pointing along the
+            weight direction contribute positively; against it, negatively. Axes
+            fit the values shown.
           </p>
           <div id="planes"></div>
           <div class="total">
-            Add the two pairs<br /><strong id="sum"></strong>
+            This group's contribution<br /><strong id="sum"></strong>
           </div>
           <section class="card" aria-label="Packed words">
-            <h2>Four components packed into each word</h2>
+            <h2>Same values, packed for the GPU</h2>
             <p class="hint">
-              Select a byte. Its signed value is below its hex digits. Component
-              0 occupies the low byte, at the right.
+              Each pair of hex digits stores one 8-bit value; its signed value
+              is underneath. Four bytes make one 32-bit word. Select a byte to
+              see its bits. Channel 0 is at the right.
             </p>
             <div id="bytes"></div>
             <h2 id="selected-byte"></h2>
             <div id="bits" aria-label="Selected byte bits, high to low"></div>
             <small
-              >Flip a bit to change this component, its coordinate, and its
-              product. The labels are signed bit weights: the high bit
-              contributes −128.</small
+              >Flip a bit to change this value and its product. Each bit adds
+              the amount below it; the high bit contributes −128. Packing
+              preserves the integers—it is not the quantization step.</small
             >
           </section>
         </section>
         <aside class="card">
-          <h2>Move a component</h2>
+          <h2>Change an input or weight</h2>
           <p class="hint">
-            Drag a slider or enter an integer from −128 to 127. Watch its arrow,
-            packed byte, and product change together.
+            Drag a slider or enter −128 to 127. Watch its arrow, packed byte,
+            and contribution change together.
           </p>
           <div id="controls"></div>
           <p>
-            <span class="lhs">LHS: blue</span><br /><span class="rhs"
-              >RHS: orange</span
+            <span class="lhs">Inputs: feature values</span><br /><span
+              class="rhs"
+              >Weights: learned multipliers</span
             >
           </p>
+          <p id="prediction"></p>
           <small
-            >Try sweeping a component from −1 to 0: one spatial step changes all
-            eight bits. The plots explain the mathematics, not GPU execution
-            order.</small
+            >These are illustrative integers, not a running model. The plots
+            explain the mathematics, not GPU execution order.</small
           >
         </aside>
       </div>
+      <details class="details intro">
+        <summary>From four values to a neural-network layer</summary>
+        <p>
+          A 64-input sum takes 16 groups like this. A real layer accumulates the
+          groups, includes a bias, and applies quantization scales and any
+          zero-point corrections. Channel mixing is also called a 1×1
+          convolution.
+        </p>
+        <p>
+          Four 8-bit values occupy one 32-bit word instead of four 32-bit
+          values. On GPUs with native packed-dot support, the operation also
+          avoids separate unpacking and multiplication in shader code. Speed
+          depends on the hardware and workload; this small example is not a
+          benchmark.
+        </p>
+        <p>
+          <a
+            href="https://developer.chrome.com/blog/io24-webassembly-webgpu-2#packed_integer_dot_products"
+            >Packed arithmetic in WebGPU</a
+          >
+          ·
+          <a href="https://www.w3.org/TR/WGSL/#dot4I8Packed-builtin"
+            >WGSL operation</a
+          >
+          ·
+          <a
+            href="https://github.com/tensorflow/tensorflow/blob/master/tensorflow/lite/g3doc/performance/quantization_spec.md"
+            >Quantization and scales</a
+          >
+        </p>
+      </details>
     </main>
   </body>
 </html>

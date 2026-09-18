@@ -98,9 +98,11 @@ if (
     for (let component = 0; component < 4; component++) {
       const key = `${side}${component}` as keyof typeof settings;
       const control = gui.add(settings, key, -128, 127, 1);
+      const label = `${side === 'lhs' ? 'Input' : 'Weight'} ${component}`;
+      control.name(label);
       control.domElement
         .querySelector('input')!
-        .setAttribute('aria-label', key);
+        .setAttribute('aria-label', label);
       control.onChange(() => {
         view.select(side, component);
         updateResult();

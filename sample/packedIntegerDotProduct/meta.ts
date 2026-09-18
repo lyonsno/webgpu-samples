@@ -1,7 +1,7 @@
 export default {
   name: 'Packed Integer Dot Product',
   description:
-    'Explore four-component integer vectors as two coordinate pairs, inspect their packed signed bytes, and compute their dot product with dot4I8Packed.',
+    'Explore how packed integer dot products combine inputs and weights in quantized neural networks. Change a value and follow its contribution through the geometry, packed bytes, and WGSL operation.',
   filename: __DIRNAME__,
   sources: [
     { path: 'main.ts' },
