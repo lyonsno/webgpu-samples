@@ -258,17 +258,18 @@
       <h1>Packed integer dot products</h1>
       <p class="intro">
         A dot product multiplies matching values in two lists, then adds the
-        results. The packed version works directly on four pairs of 8-bit
-        integers, helping quantized neural networks compute with compact data.
+        results. Packed integer dot products do this on four pairs of 8-bit
+        values, with each group of four stored in one 32-bit word.
       </p>
       <section class="context intro" aria-label="Neural-network example">
         <h2>Why a vision model uses this</h2>
         <p>
-          At each image location, a channel-mixing layer combines
-          <span class="lhs">input features</span> with
-          <span class="rhs">learned weights</span> to produce a new feature.
-          Quantization approximates these numbers with small integers. Explore
-          one group of four from that weighted sum below.
+          A vision model builds new features by combining
+          <span class="lhs">responses to patterns, such as edges,</span> with
+          <span class="rhs">learned weights</span>. It repeats these weighted
+          sums across an image. Quantized models approximate inputs and weights
+          with small integers to reduce memory and data movement. Explore one
+          four-value group from a sum below.
         </p>
       </section>
       <h2>One group of four, computed by WebGPU</h2>
@@ -337,8 +338,8 @@
         <p>
           A 64-input sum takes 16 groups like this. A real layer accumulates the
           groups, includes a bias, and applies quantization scales and any
-          zero-point corrections. Channel mixing is also called a 1×1
-          convolution.
+          zero-point corrections. This feature-combining operation is called
+          channel mixing, or a 1×1 convolution.
         </p>
         <p>
           Four 8-bit values occupy one 32-bit word instead of four 32-bit
