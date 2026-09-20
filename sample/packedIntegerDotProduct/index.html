@@ -70,40 +70,11 @@
         grid-template-columns: minmax(0, 1fr) 280px;
         gap: 20px;
       }
-      .card,
-      figure {
+      .card {
         background: #192533;
         border: 1px solid #3b4b5e;
         border-radius: 8px;
         padding: 16px;
-      }
-      #planes {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 12px;
-      }
-      figure {
-        margin: 0;
-        padding: 12px;
-      }
-      figcaption {
-        font-weight: 650;
-      }
-      svg {
-        display: block;
-        width: 100%;
-      }
-      svg text {
-        fill: #afbdcb;
-        font: 11px system-ui;
-      }
-      .grid {
-        fill: none;
-        stroke: #304153;
-      }
-      .axis {
-        fill: none;
-        stroke: #75879a;
       }
       .lhs {
         color: #72d6fa;
@@ -115,37 +86,9 @@
         stroke: #ffc078;
         fill: #ffc078;
       }
-      .arrow {
-        stroke-width: 2.5;
-      }
-      .projection {
-        stroke: #b4c2d1;
-        stroke-dasharray: 4 4;
-      }
-      .projection-foot {
-        stroke: #c3d1e0;
-        stroke-width: 5;
-        opacity: 0.35;
-      }
-      .projection-point,
-      .origin {
-        fill: #e4ecf3;
-      }
-      .selected-plane {
-        border-color: #8aa2b8;
-      }
-      .coordinates {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 4px 12px;
-      }
-      .products,
       #sum,
       #operation {
         font-family: ui-monospace, monospace;
-      }
-      .products {
-        margin: 6px 0;
       }
       .total {
         margin: 12px 0 20px;
@@ -231,9 +174,6 @@
         .layout {
           grid-template-columns: minmax(0, 1fr);
         }
-        aside {
-          grid-row: 1;
-        }
         #controls .dg {
           width: 100% !important;
         }
@@ -241,9 +181,6 @@
       @media (max-width: 520px) {
         body {
           padding: 12px;
-        }
-        #planes {
-          grid-template-columns: minmax(0, 1fr);
         }
         .byte-row {
           gap: 4px;
@@ -285,7 +222,9 @@
             <p class="hint">
               Each tile shows one value as two hex digits, with the signed
               decimal value underneath. Read the four hex pairs together to get
-              one 32-bit word. Channel 0 is at the right.
+              one 32-bit word. The first value is channel 0 in the low byte;
+              hexadecimal writes the high byte on the left, so channel 0 appears
+              at the right. Negative values use two's-complement byte encoding.
             </p>
             <div id="bytes"></div>
             <p class="hint">
@@ -338,17 +277,6 @@
           two's-complement encoding of a signed 8-bit integer.
         </p>
       </details>
-      <details class="details" id="geometry-details">
-        <summary>Another view: dot products in space</summary>
-        <p class="hint intro">
-          Each arrow uses two channel values as coordinates. Add both plots'
-          contributions for the four-input sum. Inputs pointing along the weight
-          direction contribute positively; against it, negatively. The dashed
-          line projects the input arrow onto that direction. Axes fit the values
-          shown. These plots explain the mathematics, not GPU execution order.
-        </p>
-        <div id="planes"></div>
-      </details>
       <details class="details intro">
         <summary>From four values to a neural-network layer</summary>
         <p>
@@ -361,7 +289,9 @@
           Four 8-bit values occupy one 32-bit word instead of four 32-bit
           values. On GPUs with native packed-dot support, the operation also
           avoids separate unpacking and multiplication in shader code. Speed
-          depends on the hardware and workload; this small example is not a
+          depends on the hardware and workload. The benefit comes when a
+          workload keeps many quantized values packed and performs many such dot
+          products; packing these eight demo values is only explanatory, not a
           benchmark.
         </p>
         <p>
