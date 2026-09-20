@@ -72,7 +72,11 @@ const windowEnergyBuffer = buffer(
 );
 const readback = buffer(4, GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST);
 device.queue.writeBuffer(imageBuffer, 0, image);
-device.queue.writeBuffer(windowEnergyBuffer, 0, windowEnergy);
+device.queue.writeBuffer(
+  windowEnergyBuffer,
+  0,
+  windowEnergy.buffer as ArrayBuffer
+);
 
 const module = device.createShaderModule({ code: packedWGSL });
 const pipelines = await Promise.all(
