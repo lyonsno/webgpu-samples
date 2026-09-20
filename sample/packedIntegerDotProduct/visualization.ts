@@ -9,7 +9,7 @@ export function createVisualization(
   const bits = document.querySelector('#bits') as HTMLElement;
   const selectedLabel = document.querySelector('#selected-byte') as HTMLElement;
   const roles = { lhs: 'Input', rhs: 'Weight' };
-  let selected: [Side, number] = ['lhs', 0];
+  let selected: [Side, number] = ['lhs', 1];
   let vectors: Record<Side, Vector>;
   let words: Record<Side, number>;
 
