@@ -1,7 +1,14 @@
 export default {
   name: 'Packed Integer Dot Product',
   description:
-    'Packs four signed 8-bit integers into each u32, computes their dot product with dot4I8Packed, and reads back the results.',
+    'Find an image patch with packed integer dot products. Explore the GPU error surface and compare packed dots with scalar squared differences.',
   filename: __DIRNAME__,
-  sources: [{ path: 'main.ts' }, { path: 'packed.wgsl' }],
+  sources: [
+    { path: 'main.ts' },
+    { path: 'packed.wgsl' },
+    { path: 'surface.wgsl' },
+    { path: 'data.ts' },
+    { path: '../timestampQuery/TimestampQueryManager.ts' },
+    { path: 'index.html' },
+  ],
 };

@@ -3,25 +3,130 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>webgpu-samples: packedIntegerDotProduct</title>
+    <title>Packed dot products: find an image patch</title>
     <style>
       :root {
         color-scheme: light dark;
+        font: 15px system-ui;
       }
       body {
-        width: calc(100vw - 280px);
-        height: 400px;
-        overflow-y: hidden;
+        margin: 16px;
+        max-width: 1100px;
+      }
+      h1 {
+        font-size: 1.3rem;
+      }
+      p {
+        max-width: 85ch;
+      }
+      .views {
+        display: grid;
+        grid-template-columns: 1fr 1.5fr;
+        gap: 16px;
+      }
+      figure {
+        margin: 0;
+        min-width: 0;
+      }
+      canvas {
+        width: 100%;
+        display: block;
+      }
+      #source {
+        cursor: crosshair;
+      }
+      #surface {
+        aspect-ratio: 1.35;
+      }
+      #template {
+        width: 64px;
+        image-rendering: pixelated;
+        display: inline-block;
+        vertical-align: middle;
       }
       pre {
         white-space: pre-wrap;
-        height: 370px;
+        overflow-wrap: anywhere;
+        font-size: 13px;
+      }
+      #controls {
+        margin: 12px 0;
+      }
+      figcaption {
+        margin: 6px 0;
+      }
+      @media (max-width: 620px) {
+        .views {
+          grid-template-columns: 1fr;
+        }
       }
     </style>
     <script defer src="main.js" type="module"></script>
     <script defer type="module" src="../../js/iframe-helper.js"></script>
   </head>
   <body>
-    <pre id="output">Computing packed integer dot products…</pre>
+    <h1>Find an image patch with packed dot products</h1>
+    <p>
+      <code>dot4I8Packed</code> multiplies four pairs of signed bytes and adds
+      their products. Here, many packed dots search for a 32×32 grayscale
+      template: each candidate gets a sum of squared pixel differences. Lower
+      error means a closer match.
+    </p>
+    <div class="views">
+      <figure>
+        <canvas
+          id="source"
+          width="512"
+          height="512"
+          aria-label="Grayscale source. Click to inspect a candidate patch."
+        ></canvas>
+        <figcaption>
+          Orange: template. Cyan: candidate. Click to inspect; use the controls
+          to move or choose a new template.
+        </figcaption>
+      </figure>
+      <figure>
+        <canvas
+          id="surface"
+          aria-label="GPU error surface, low basins are closer matches"
+        ></canvas>
+        <figcaption>
+          Every point is a candidate location (x across, y into the image).
+          Height and color show RMS pixel error on a fixed 0–255 scale; white
+          marks the inspected candidate.
+        </figcaption>
+      </figure>
+    </div>
+    <div id="controls"></div>
+    <p>
+      Template
+      <canvas
+        id="template"
+        width="32"
+        height="32"
+        aria-label="Selected template"
+      ></canvas>
+      <span id="selection"></span>
+    </p>
+    <pre id="group">Loading WebGPU…</pre>
+    <p id="result" aria-live="polite"></p>
+    <p id="timing"></p>
+    <p>
+      We search 14,641 overlapping windows on a four-pixel grid, not every pixel
+      offset. Four adjacent pixels occupy one word. Subtracting 128 maps
+      grayscale 0–255 to signed bytes −128–127 without changing pixel
+      differences. Hex writes the low byte (first pixel) at the right.
+    </p>
+    <details>
+      <summary>Why use packed dots for squared differences?</summary>
+      <p>
+        <code>E = P·P + T·T − 2P·T</code>. The template term is computed once;
+        each group of four pixels needs two packed dots. The GPU performs about
+        7.5 million packed dots per search and renders the error buffer
+        directly. Toggle the natural scalar subtraction-and-square path to
+        compare GPU compute time on your device. This is brightness-sensitive
+        patch matching, not rotation/scale-invariant object recognition.
+      </p>
+    </details>
   </body>
 </html>
