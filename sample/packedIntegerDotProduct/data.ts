@@ -28,3 +28,20 @@ export function makeTemplate(image: Uint32Array, x: number, y: number) {
   }
   return { words, energy };
 }
+
+export function makeWindowEnergies(image: Uint32Array): Int32Array {
+  const energies = new Int32Array(gridSize ** 2);
+  for (let candidate = 0; candidate < energies.length; candidate++) {
+    const x = (candidate % gridSize) * stride;
+    const y = Math.floor(candidate / gridSize) * stride;
+    for (let row = 0; row < patchSize; row++) {
+      for (let col = 0; col < patchSize / 4; col++) {
+        const word = image[((y + row) * imageSize + x) / 4 + col];
+        for (let lane = 0; lane < 4; lane++) {
+          energies[candidate] += unpack(word, lane) ** 2;
+        }
+      }
+    }
+  }
+  return energies;
+}

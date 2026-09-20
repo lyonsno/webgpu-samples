@@ -6,6 +6,7 @@ import {
   packPixels,
   unpack,
   makeTemplate,
+  makeWindowEnergies,
   imageSize,
   patchSize,
   stride,
@@ -64,8 +65,14 @@ const errors = buffer(
   gridSize ** 2 * 4,
   GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC
 );
+const windowEnergy = makeWindowEnergies(image);
+const windowEnergyBuffer = buffer(
+  windowEnergy.byteLength,
+  GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+);
 const readback = buffer(4, GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST);
 device.queue.writeBuffer(imageBuffer, 0, image);
+device.queue.writeBuffer(windowEnergyBuffer, 0, windowEnergy);
 
 const module = device.createShaderModule({ code: packedWGSL });
 const pipelines = await Promise.all(
@@ -79,9 +86,13 @@ const pipelines = await Promise.all(
 const groups = pipelines.map((pipeline) =>
   device.createBindGroup({
     layout: pipeline.getBindGroupLayout(0),
-    entries: [imageBuffer, templateBuffer, energyBuffer, errors].map(
-      (buffer, binding) => ({ binding, resource: { buffer } })
-    ),
+    entries: [
+      imageBuffer,
+      templateBuffer,
+      energyBuffer,
+      windowEnergyBuffer,
+      errors,
+    ].map((buffer, binding) => ({ binding, resource: { buffer } })),
   })
 );
 
@@ -137,7 +148,7 @@ resize();
 
 const settings = {
   packed: true,
-  x: 256,
+  x: 320,
   y: 256,
   useAsTemplate: () => {
     templateX = settings.x;
@@ -235,14 +246,17 @@ async function update() {
           patchSize,
           patchSize
         );
-      for (const [px, py, color] of [
-        [templateX, templateY, '#ff9e40'],
-        [x, y, '#00ecff'],
-      ] as const) {
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 2;
-        ctx.strokeRect(px, py, patchSize, patchSize);
-      }
+      ctx.strokeStyle = '#ff40c8';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(
+        templateX - 1,
+        templateY - 1,
+        patchSize + 2,
+        patchSize + 2
+      );
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x + 2, y + 2, patchSize - 4, patchSize - 4);
       document.querySelector(
         '#selection'
       )!.textContent = `at (${templateX}, ${templateY}); candidate at (${x}, ${y}).`;

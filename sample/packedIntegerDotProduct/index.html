@@ -81,8 +81,8 @@
           aria-label="Grayscale source. Click to inspect a candidate patch."
         ></canvas>
         <figcaption>
-          Orange: template. Cyan: candidate. Click to inspect; use the controls
-          to move or choose a new template.
+          Magenta: template. White: inspected candidate. Click to inspect; use
+          the controls to move or choose a new template.
         </figcaption>
       </figure>
       <figure>
@@ -120,12 +120,13 @@
     <details>
       <summary>Why use packed dots for squared differences?</summary>
       <p>
-        <code>E = P·P + T·T − 2P·T</code>. The template term is computed once;
-        each group of four pixels needs two packed dots. The GPU performs about
-        7.5 million packed dots per search and renders the error buffer
-        directly. Toggle the natural scalar subtraction-and-square path to
-        compare GPU compute time on your device. This is brightness-sensitive
-        patch matching, not rotation/scale-invariant object recognition.
+        <code>E = P·P + T·T − 2P·T</code>. The fixed image's candidate energies
+        are prepared once, and each new template needs one packed cross-dot per
+        four pixels. The GPU performs about 3.75 million packed dots per search
+        and renders the error buffer directly. Toggle the natural scalar
+        subtraction-and-square path to compare GPU compute time on your device.
+        This is brightness-sensitive patch matching, not
+        rotation/scale-invariant object recognition.
       </p>
     </details>
   </body>
