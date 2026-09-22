@@ -1,6 +1,7 @@
 struct View {
   matrix: mat4x4f,
   selected: vec2u,
+  best: vec2u,
 }
 @group(0) @binding(0) var<storage, read> errors: array<i32>;
 @group(0) @binding(1) var<uniform> view: View;
@@ -37,5 +38,6 @@ fn fragmentMain(in: Vertex) -> @location(0) vec4f {
   let line = smoothstep(0.0, max(fwidth(bands), 0.01), abs(fract(bands + 0.5) - 0.5));
   color *= mix(0.65, 1.0, line);
   if (distance(in.grid, vec2f(view.selected)) < 0.8) { color = vec3f(1); }
+  if (distance(in.grid, vec2f(view.best)) < 1.4) { color = vec3f(1, 0.25, 0.78); }
   return vec4f(color, 1);
 }

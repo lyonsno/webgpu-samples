@@ -3,6 +3,19 @@ export const patchSize = 32;
 export const stride = 4;
 export const gridSize = (imageSize - patchSize) / stride + 1;
 
+export function findBestMatch(errors: Int32Array) {
+  let index = 0,
+    count = 0;
+  for (let i = 0; i < errors.length; i++) {
+    if (errors[i] < errors[index]) {
+      index = i;
+      count = 0;
+    }
+    if (errors[i] === errors[index]) count++;
+  }
+  return { index, count, error: errors[index] };
+}
+
 export function packPixels(pixels: Uint8Array) {
   const words = new Uint32Array(pixels.length / 4);
   for (let i = 0; i < pixels.length; i++) {
