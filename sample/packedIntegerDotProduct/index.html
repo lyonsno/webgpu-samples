@@ -87,7 +87,23 @@
         outline: 3px solid #ff40c8;
       }
       #comparison {
-        outline: 2px dashed #888;
+        outline: 2px dashed white;
+        box-shadow: 0 0 0 3px #111;
+      }
+      .key {
+        display: inline-block;
+        width: 0.8em;
+        height: 0.8em;
+        margin-right: 0.4em;
+        vertical-align: baseline;
+      }
+      .best-key {
+        border: 2px solid #ff40c8;
+      }
+      .comparison-key {
+        border: 2px dashed white;
+        background: #333;
+        box-shadow: 0 0 0 1px #111;
       }
       #answer {
         font-size: 1.15rem;
@@ -134,7 +150,7 @@
         height: 10px;
         border: 3px solid white;
         box-shadow: 0 0 0 1px black;
-        border-radius: 50%;
+        border-style: dashed;
         transform: translate(-50%, -50%);
       }
       #best-marker::after {
@@ -226,17 +242,21 @@
     </p>
     <div class="patches">
       <figure>
-        <figcaption>1. Find this cutout</figcaption>
+        <figcaption>Search target</figcaption>
         <canvas
           id="template"
           width="32"
           height="32"
           aria-label="Cutout to find"
         ></canvas>
+        <p>The pixels we ask the GPU to find.</p>
         <button id="next" type="button">Try another cutout</button>
       </figure>
       <figure>
-        <figcaption>2. Closest match</figcaption>
+        <figcaption>
+          <span class="key best-key" aria-hidden="true"></span>Best match ·
+          search result
+        </figcaption>
         <canvas
           id="match"
           width="32"
@@ -244,9 +264,13 @@
           aria-label="Closest matching image patch"
         ></canvas>
         <span id="best-error">Searching…</span>
+        <p id="answer" role="status">Searching the picture…</p>
       </figure>
       <figure>
-        <figcaption>3. Compare another spot</figcaption>
+        <figcaption>
+          <span class="key comparison-key" aria-hidden="true"></span>Selected
+          comparison
+        </figcaption>
         <canvas
           id="comparison"
           width="32"
@@ -254,9 +278,16 @@
           aria-label="Patch at the inspected location"
         ></canvas>
         <span id="comparison-error"></span>
+        <p>
+          Choose a location in any view below to compare it with the search
+          target.
+        </p>
       </figure>
     </div>
-    <p id="answer" role="status">Searching the picture…</p>
+    <p>
+      Each target is cut from this picture, so the best match has the same
+      pixels. The search discovers <em>where</em> they are.
+    </p>
     <div class="views">
       <figure>
         <h2>Where it was found</h2>
@@ -267,8 +298,8 @@
           aria-label="Search image. Click to compare a location; coordinate controls are below."
         ></canvas>
         <figcaption>
-          Magenta marks the best match. The dashed white box is your comparison.
-          Click the picture to try another spot.
+          The solid magenta box marks the best match. The dashed white box marks
+          the selected comparison. Click the picture to try another spot.
         </figcaption>
       </figure>
       <figure>
@@ -294,23 +325,32 @@
             aria-label="Error landscape. Drag or use arrow keys to orbit; click a surface point to compare. Home resets the view."
           ></canvas>
           <span id="best-marker" hidden>Best match</span>
-          <span id="comparison-marker" hidden aria-hidden="true"></span>
+          <span
+            id="comparison-marker"
+            hidden
+            aria-label="Selected comparison"
+          ></span>
         </div>
         <figcaption>
           Each point represents a place in the picture. Lower, bluer valleys
           mean closer matches; higher, warmer peaks mean larger differences.
           Drag to orbit; click a valley to inspect its patch. Magenta is the
-          answer, white is your comparison. Arrow keys orbit too.
+          best match; the dashed white marker is the selected comparison. Arrow
+          keys orbit too.
         </figcaption>
         <button id="reset-view" type="button">Reset view</button>
       </figure>
     </div>
+    <h2>
+      <span class="key comparison-key" aria-hidden="true"></span>Selected
+      comparison location
+    </h2>
     <div class="controls">
       <label
-        >Compare x
+        >x
         <input
           id="x"
-          aria-label="Candidate x"
+          aria-label="Selected comparison x"
           type="number"
           min="0"
           max="480"
@@ -321,23 +361,26 @@
         >y
         <input
           id="y"
-          aria-label="Candidate y"
+          aria-label="Selected comparison y"
           type="number"
           min="0"
           max="480"
           step="4"
           value="248"
       /></label>
-      <button id="use-template" type="button">Find this spot instead</button>
+      <button id="use-template" type="button">
+        Use comparison as search target
+      </button>
     </div>
     <p id="result" aria-live="polite"></p>
     <p>
-      These cutouts come from the picture, so an exact match exists. The search
-      receives the cutout's pixels, not its original position. It compares
-      overlapping 32×32 windows at four-pixel steps.
+      Changing this location moves the dashed white markers; the search target
+      stays the same until you press the button. The search receives the
+      target's pixels, not its original position. It compares overlapping 32×32
+      windows at four-pixel steps.
     </p>
     <section id="lesson" aria-labelledby="lesson-title">
-      <h2 id="lesson-title">How this spot gets its score</h2>
+      <h2 id="lesson-title">How the selected comparison gets its score</h2>
       <p>
         A match error adds squared pixel differences; identical patches score
         zero. The useful rewrite is <code>(p − t)² = p² + t² − 2pt</code>:
@@ -361,7 +404,7 @@
       </div>
       <div class="words">
         <div>
-          Picture <code>p</code>
+          Comparison <code>p</code>
           <div class="patch-preview">
             <canvas
               id="picture-detail"
@@ -379,7 +422,7 @@
           </p>
         </div>
         <div>
-          Cutout <code>t</code>
+          Search target <code>t</code>
           <div class="patch-preview">
             <canvas
               id="cutout-detail"

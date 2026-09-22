@@ -439,10 +439,11 @@ async function main() {
         ? 'Identical pixels · zero difference'
         : `Difference: ${rms(best.error)} / 255`;
     document.querySelector('#comparison-error')!.textContent =
-      error === best.error
+      `(${x}, ${y}) · ` +
+      (error === best.error
         ? 'Also a best match'
-        : `Difference: ${rms(error)} / 255`;
-    result.textContent = `Compared spot at (${x}, ${y}): ${
+        : `Difference: ${rms(error)} / 255`);
+    result.textContent = `Selected comparison at (${x}, ${y}): ${
       error === best.error
         ? 'matches just as well as the highlighted answer.'
         : `a worse match, with ${rms(
