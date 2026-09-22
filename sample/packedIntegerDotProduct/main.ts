@@ -16,12 +16,21 @@ import TimestampQueryManager from '../timestampQuery/TimestampQueryManager';
 import { quitIfWebGPUNotAvailableOrMissingFeatures } from '../util';
 
 const result = document.querySelector('#result')!;
+function unavailable(message: string): never {
+  document.querySelector('#answer')!.textContent = message;
+  document.querySelector('#best-error')!.textContent = 'Unavailable';
+  document.querySelectorAll('button, input').forEach((control) => {
+    control.setAttribute('disabled', '');
+  });
+  throw new Error(message);
+}
 if (
   !navigator.gpu?.wgslLanguageFeatures.has('packed_4x8_integer_dot_product')
 ) {
-  throw new Error("This sample requires 'packed_4x8_integer_dot_product'.");
+  unavailable('Packed integer dot products are unavailable in this browser.');
 }
 const adapter = await navigator.gpu.requestAdapter();
+if (!adapter) unavailable('No WebGPU adapter is available for this search.');
 const device = await adapter?.requestDevice({
   requiredFeatures: adapter.features.has('timestamp-query')
     ? ['timestamp-query']
@@ -134,11 +143,14 @@ const renderGroup = device.createBindGroup({
 let depth: GPUTexture;
 let matrix = mat4.identity();
 const resize = () => {
-  canvas.width = Math.max(1, Math.round(canvas.clientWidth * devicePixelRatio));
-  canvas.height = Math.max(
+  const width = Math.max(1, Math.round(canvas.clientWidth * devicePixelRatio));
+  const height = Math.max(
     1,
     Math.round(canvas.clientHeight * devicePixelRatio)
   );
+  if (depth && canvas.width === width && canvas.height === height) return false;
+  canvas.width = width;
+  canvas.height = height;
   depth?.destroy();
   depth = device.createTexture({
     size: [canvas.width, canvas.height],
@@ -151,6 +163,7 @@ const resize = () => {
     mat4.lookAt([1.2, 2.8, 3.2], [0, 0.3, 0], [0, 1, 0])
   );
   device.queue.writeBuffer(viewBuffer, 0, matrix.buffer as ArrayBuffer);
+  return true;
 };
 resize();
 
@@ -409,7 +422,6 @@ async function update() {
   }
 }
 window.addEventListener('resize', () => {
-  resize();
-  update();
+  if (resize()) update();
 });
 update();
