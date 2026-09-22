@@ -163,7 +163,7 @@ const settings = {
 const cutouts = [
   [264, 248],
   [340, 252],
-  [328, 432],
+  [308, 312],
   [184, 144],
 ];
 let cutout = 0;
