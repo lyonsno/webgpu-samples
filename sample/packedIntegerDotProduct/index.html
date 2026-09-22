@@ -46,6 +46,9 @@
       input:focus-visible {
         outline: 3px solid #bc007d;
       }
+      canvas:focus-visible {
+        outline: 3px solid #bc007d;
+      }
       .patches {
         display: flex;
         flex-wrap: wrap;
@@ -61,6 +64,21 @@
         max-width: 100%;
         image-rendering: pixelated;
         margin: 8px 0;
+      }
+      .patch-preview {
+        position: relative;
+        width: 64px;
+        max-width: 100%;
+        margin-top: 8px;
+        image-rendering: pixelated;
+      }
+      .group-highlight {
+        position: absolute;
+        width: 12.5%;
+        height: 3.125%;
+        outline: 2px solid #00bfff;
+        box-shadow: 0 0 0 3px #111;
+        pointer-events: none;
       }
       .patches figcaption {
         font-weight: 600;
@@ -93,6 +111,11 @@
       }
       #surface {
         aspect-ratio: 1;
+        cursor: grab;
+        touch-action: none;
+      }
+      #surface:active {
+        cursor: grabbing;
       }
       #plot span {
         position: absolute;
@@ -150,6 +173,39 @@
         overflow-wrap: anywhere;
         font-size: 13px;
       }
+      #lesson {
+        border-top: 1px solid #8886;
+        padding-top: 20px;
+      }
+      .words {
+        display: grid;
+        grid-template-columns: auto minmax(0, 220px);
+        align-items: center;
+        gap: 10px 16px;
+        width: fit-content;
+        max-width: 100%;
+      }
+      .pixels {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        text-align: center;
+        font: 13px monospace;
+        gap: 4px;
+      }
+      .pixels b {
+        display: block;
+        padding: 8px 2px;
+        border: 1px solid #8886;
+        margin-bottom: 4px;
+      }
+      .equation {
+        padding: 12px;
+        background: #8881;
+        border-left: 3px solid #00bfff;
+      }
+      .word {
+        margin: 6px 0 0;
+      }
       @media (max-width: 800px) {
         .views {
           grid-template-columns: 1fr;
@@ -165,7 +221,8 @@
       Where did this small piece come from? The GPU compares its pixels with
       14,641 locations in the picture and finds the closest match. This is
       <em>template matching</em>, a way to locate a known image inside a larger
-      one.
+      one. Packed dot products let the GPU compare four pixel pairs at a time;
+      the views below show the match errors they produce.
     </p>
     <div class="patches">
       <figure>
@@ -233,7 +290,8 @@
         <div id="plot">
           <canvas
             id="surface"
-            aria-label="Match errors across the image: lower valleys are closer matches"
+            tabindex="0"
+            aria-label="Error landscape. Drag or use arrow keys to orbit; click a surface point to compare. Home resets the view."
           ></canvas>
           <span id="best-marker" hidden>Best match</span>
           <span id="comparison-marker" hidden aria-hidden="true"></span>
@@ -241,9 +299,10 @@
         <figcaption>
           Each point represents a place in the picture. Lower, bluer valleys
           mean closer matches; higher, warmer peaks mean larger differences.
-          Magenta is the answer, white is your comparison. Image top is at the
-          back.
+          Drag to orbit; click a valley to inspect its patch. Magenta is the
+          answer, white is your comparison. Arrow keys orbit too.
         </figcaption>
+        <button id="reset-view" type="button">Reset view</button>
       </figure>
     </div>
     <div class="controls">
@@ -277,14 +336,85 @@
       receives the cutout's pixels, not its original position. It compares
       overlapping 32×32 windows at four-pixel steps.
     </p>
-    <details>
-      <summary>How packed dot products do the search</summary>
+    <section id="lesson" aria-labelledby="lesson-title">
+      <h2 id="lesson-title">How this spot gets its score</h2>
       <p>
-        A match score adds up squared pixel differences: identical patches score
-        zero. <code>dot4I8Packed</code> multiplies four pairs of signed bytes
-        and adds the products, letting us compare four pixels together. Millions
-        of these small operations produce the landscape above.
+        A match error adds squared pixel differences; identical patches score
+        zero. The useful rewrite is <code>(p − t)² = p² + t² − 2pt</code>:
+        prepare the sums of squares once, then compute the dot product for each
+        possible match.
       </p>
+      <p class="equation">
+        Match error = picture’s squared values + cutout’s squared values − 2 ×
+        their dot product
+      </p>
+      <p>
+        The blue outlines mark four adjacent pixels in each patch. Each tile
+        below shows its grayscale value, with its signed byte underneath:
+        subtracting 128 from both sides fits −128…127 and preserves their
+        difference. Four bytes share one <code>u32</code> word.
+      </p>
+      <div class="controls">
+        <label for="group-index">Pixel group</label>
+        <input id="group-index" type="range" min="0" max="255" value="132" />
+        <output id="group-number" for="group-index"></output>
+      </div>
+      <div class="words">
+        <div>
+          Picture <code>p</code>
+          <div class="patch-preview">
+            <canvas
+              id="picture-detail"
+              width="32"
+              height="32"
+              aria-label="Compared patch with highlighted four-pixel group"
+            ></canvas>
+            <span class="group-highlight" aria-hidden="true"></span>
+          </div>
+        </div>
+        <div>
+          <div id="picture-pixels" class="pixels"></div>
+          <p class="word">
+            → <code id="picture-word"></code> <small>u32</small>
+          </p>
+        </div>
+        <div>
+          Cutout <code>t</code>
+          <div class="patch-preview">
+            <canvas
+              id="cutout-detail"
+              width="32"
+              height="32"
+              aria-label="Cutout with highlighted four-pixel group"
+            ></canvas>
+            <span class="group-highlight" aria-hidden="true"></span>
+          </div>
+        </div>
+        <div>
+          <div id="cutout-pixels" class="pixels"></div>
+          <p class="word">
+            → <code id="cutout-word"></code> <small>u32</small>
+          </p>
+        </div>
+      </div>
+      <p>
+        In hexadecimal, the first pixel is the rightmost byte; negative bytes
+        use two’s complement. <code>dot4I8Packed</code> multiplies the four
+        matching signed pairs and adds them:
+      </p>
+      <pre id="dot" class="equation"></pre>
+      <pre id="group"></pre>
+      <p>
+        Each 32×32 patch has 1,024 pixels:
+        <strong>256 packed dots per location</strong>. The shader starts with
+        the two sums of squares and, for every group, does
+        <code>error -= 2 * dot4I8Packed(p, t);</code>. Repeating this across
+        14,641 locations produces the heatmap and landscape—not just a single
+        four-pixel comparison.
+      </p>
+    </section>
+    <details>
+      <summary>Compare GPU implementations</summary>
       <label
         ><input id="packed" type="checkbox" checked /> Use packed dot
         products</label
@@ -294,19 +424,13 @@
         Browser timestamp resolution can produce zero or stepped readings.
         Individual passes do not establish a speedup.
       </p>
-      <pre id="group"></pre>
       <p>
-        Four adjacent grayscale pixels occupy one word. Subtracting 128 maps
-        0–255 to signed bytes −128–127 without changing their differences. The
-        first pixel is the low byte, shown at the right in hexadecimal.
-      </p>
-      <p>
-        <code>E = P·P + T·T − 2P·T</code>. The image's window energies are
-        prepared once; each new cutout uses about 3.75 million packed
-        cross-dots. The GPU supplies every error to the landscape; JavaScript
-        selects the minimum from the downloaded scores. Uncheck the box to
-        compare scalar subtraction-and-square compute time. This matches pixel
-        intensities; it does not handle rotated or resized objects.
+        Both implementations read the same packed pixels. Uncheck to unpack them
+        and subtract-and-square individually. In the packed path, JavaScript
+        prepares the picture’s sums of squares once and the cutout’s whenever it
+        changes; the GPU computes about 3.75 million packed dots per search.
+        JavaScript selects the minimum of the GPU scores. This matches pixel
+        intensities, not rotated or resized objects.
       </p>
     </details>
   </body>
