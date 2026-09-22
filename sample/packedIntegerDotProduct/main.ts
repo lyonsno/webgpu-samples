@@ -44,6 +44,12 @@ async function main() {
   // Prepare the source once. Both kernels consume the same packed grayscale data.
   const source = document.querySelector<HTMLCanvasElement>('#source')!;
   const ctx = source.getContext('2d')!;
+  const heatmap = document.querySelector<HTMLCanvasElement>('#heatmap')!;
+  const heat = heatmap.getContext('2d')!;
+  const field = document.createElement('canvas');
+  field.width = field.height = gridSize;
+  const fieldContext = field.getContext('2d')!;
+  const colors = fieldContext.createImageData(gridSize, gridSize);
   const response = await fetch('../../assets/img/Di-3d.png');
   const bitmap = await createImageBitmap(await response.blob());
   ctx.drawImage(bitmap, 0, 0, imageSize, imageSize);
@@ -218,20 +224,21 @@ async function main() {
     templateY = settings.y;
     update();
   };
-  source.onclick = (event) => {
-    const rect = source.getBoundingClientRect();
-    settings.x = snap(
-      ((event.clientX - rect.left) / rect.width) * imageSize - patchSize / 2
-    );
-    settings.y = snap(
-      ((event.clientY - rect.top) / rect.height) * imageSize - patchSize / 2
-    );
-    for (const axis of ['x', 'y'] as const)
-      document.querySelector<HTMLInputElement>(`#${axis}`)!.value = String(
-        settings[axis]
+  for (const view of [source, heatmap])
+    view.onclick = (event) => {
+      const rect = view.getBoundingClientRect();
+      settings.x = snap(
+        ((event.clientX - rect.left) / rect.width) * imageSize - patchSize / 2
       );
-    update();
-  };
+      settings.y = snap(
+        ((event.clientY - rect.top) / rect.height) * imageSize - patchSize / 2
+      );
+      for (const axis of ['x', 'y'] as const)
+        document.querySelector<HTMLInputElement>(`#${axis}`)!.value = String(
+          settings[axis]
+        );
+      update();
+    };
 
   const times: (number | undefined)[] = [];
   const timers = pipelines.map(
@@ -244,7 +251,7 @@ async function main() {
           times[0]?.toFixed(3) ?? '—'
         } ms; scalar: ${
           times[1]?.toFixed(3) ?? '—'
-        } ms. Excludes image preparation, rendering, and readback; toggle to compare (timings vary).`;
+        } ms. Excludes image preparation, rendering, and readback.`;
       })
   );
   if (!timers[0].timestampSupported)
@@ -341,17 +348,49 @@ async function main() {
               patchSize
             );
         }
-        ctx.setLineDash([]);
-        ctx.strokeStyle = '#ff40c8';
-        ctx.lineWidth = 3;
-        ctx.strokeRect(bestX - 1, bestY - 1, patchSize + 2, patchSize + 2);
-        ctx.strokeStyle = '#111';
-        ctx.lineWidth = 4;
-        ctx.strokeRect(x + 2, y + 2, patchSize - 4, patchSize - 4);
-        ctx.setLineDash([4, 4]);
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(x + 2, y + 2, patchSize - 4, patchSize - 4);
+        // Same fixed RMS/255 color scale as the GPU landscape, without contours.
+        for (let i = 0; i < scores.length; i++) {
+          const error = Math.sqrt(scores[i] / patchSize ** 2) / 255;
+          colors.data.set(
+            [
+              (0.04 + 0.96 * error) * 255,
+              (0.65 - 0.2 * error) * 255,
+              (0.75 - 0.63 * error) * 255,
+              255,
+            ],
+            i * 4
+          );
+        }
+        fieldContext.putImageData(colors, 0, 0);
+        heat.clearRect(0, 0, imageSize, imageSize);
+        heat.imageSmoothingEnabled = false;
+        // A grid sample is centered on its patch, not stretched to the image edge.
+        const inset = (patchSize - stride) / 2;
+        heat.drawImage(
+          field,
+          inset,
+          inset,
+          gridSize * stride,
+          gridSize * stride
+        );
+        for (const overlay of [ctx, heat]) {
+          overlay.setLineDash([]);
+          overlay.strokeStyle = '#ff40c8';
+          overlay.lineWidth = 3;
+          overlay.strokeRect(
+            bestX - 1,
+            bestY - 1,
+            patchSize + 2,
+            patchSize + 2
+          );
+          overlay.strokeStyle = '#111';
+          overlay.lineWidth = 4;
+          overlay.strokeRect(x + 2, y + 2, patchSize - 4, patchSize - 4);
+          overlay.setLineDash([4, 4]);
+          overlay.strokeStyle = '#fff';
+          overlay.lineWidth = 2;
+          overlay.strokeRect(x + 2, y + 2, patchSize - 4, patchSize - 4);
+        }
 
         const p = image[(y * imageSize + x) / 4],
           t = template.words[0];

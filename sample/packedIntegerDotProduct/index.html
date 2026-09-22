@@ -77,12 +77,20 @@
       }
       .views {
         display: grid;
-        grid-template-columns: 1fr 1.25fr;
+        grid-template-columns: 1fr 1fr;
         gap: 20px;
         margin: 20px 0;
       }
-      #source {
+      #source,
+      #heatmap {
         cursor: crosshair;
+      }
+      #heatmap {
+        background: #8882;
+      }
+      #landscape {
+        max-width: 640px;
+        margin: 20px auto;
       }
       #plot {
         position: relative;
@@ -211,20 +219,17 @@
         </figcaption>
       </figure>
       <figure>
-        <h2>Why that location wins</h2>
-        <div id="plot">
-          <canvas
-            id="surface"
-            aria-label="Match errors across the image: lower valleys are closer matches"
-          ></canvas>
-          <span id="best-marker" hidden>Best match</span>
-          <span id="comparison-marker" hidden aria-hidden="true"></span>
-        </div>
+        <h2>Error at each location</h2>
+        <canvas
+          id="heatmap"
+          width="512"
+          height="512"
+          aria-label="Error heatmap in the same image coordinates. Click to compare a location."
+        ></canvas>
         <figcaption>
-          Each point represents a place in the picture. Lower, bluer valleys
-          mean closer matches; higher, warmer peaks mean larger differences.
-          Magenta is the answer, white is your comparison. Image top is at the
-          back.
+          Bluer means closer; warmer means more different. Colors sit at patch
+          centers; the blank rim cannot center a full patch. Click either view
+          to compare.
         </figcaption>
       </figure>
     </div>
@@ -259,6 +264,22 @@
       receives the cutout's pixels, not its original position. It compares
       overlapping 32×32 windows at four-pixel steps.
     </p>
+    <figure id="landscape">
+      <h2>The same errors in 3D</h2>
+      <div id="plot">
+        <canvas
+          id="surface"
+          aria-label="Match errors across the image: lower valleys are closer matches"
+        ></canvas>
+        <span id="best-marker" hidden>Best match</span>
+        <span id="comparison-marker" hidden aria-hidden="true"></span>
+      </div>
+      <figcaption>
+        Each point represents a place in the picture. Lower, bluer valleys mean
+        closer matches; higher, warmer peaks mean larger differences. Magenta is
+        the answer, white is your comparison. Image top is at the back.
+      </figcaption>
+    </figure>
     <details>
       <summary>How packed dot products do the search</summary>
       <p>
@@ -272,6 +293,10 @@
         products</label
       >
       <p id="timing"></p>
+      <p>
+        Browser timestamp resolution can produce zero or stepped readings.
+        Individual passes do not establish a speedup.
+      </p>
       <pre id="group"></pre>
       <p>
         Four adjacent grayscale pixels occupy one word. Subtracting 128 maps
