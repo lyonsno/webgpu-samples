@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Find a cutout with packed dot products</title>
+    <title>Packed dot products — find a cutout in a picture</title>
     <style>
       :root {
         color-scheme: light dark;
@@ -86,6 +86,11 @@
       }
       .patches figcaption {
         font-weight: 600;
+        flex: 1;
+      }
+      .patches figure {
+        display: flex;
+        flex-direction: column;
       }
       #comparison {
         outline: 2px dashed white;
@@ -328,14 +333,19 @@
     <script defer type="module" src="../../js/iframe-helper.js"></script>
   </head>
   <body>
-    <h1>Find this cutout in the picture</h1>
+    <h1>Packed dot products</h1>
     <p>
-      The GPU gets this cutout’s pixels, not its original location. It compares
-      the cutout with patches across the picture. The smallest pixel difference
-      tells us where it belongs.
+      Store four signed 8-bit values in each 32-bit word. WebGPU’s
+      <code>dot4I8Packed</code> takes two of these words, multiplies
+      corresponding values, and adds the four products.
     </p>
     <section class="comparison-step" aria-labelledby="comparison-step-title">
-      <h2 id="comparison-step-title">Two patches → one difference score</h2>
+      <h2 id="comparison-step-title">Find this cutout in the picture</h2>
+      <p>
+        The GPU gets the cutout’s pixels, but not its location. It searches the
+        picture using packed dot products to help calculate a difference score
+        at each candidate location. The smallest score identifies the match.
+      </p>
       <div class="patches">
         <figure>
           <figcaption>Cutout to find</figcaption>
@@ -348,8 +358,8 @@
         </figure>
         <figure>
           <figcaption>
-            <span class="key comparison-key" aria-hidden="true"></span>Inspected
-            patch
+            <span class="key comparison-key" aria-hidden="true"></span>Picture
+            patch you’re inspecting
           </figcaption>
           <canvas
             id="comparison"
@@ -359,7 +369,7 @@
           ></canvas>
         </figure>
         <div class="score-card">
-          <h3>→ Difference for inspected patch</h3>
+          <h3>→ Pixel difference</h3>
           <span id="selected-score">Calculating…</span>
           <p>0 = identical pixels</p>
         </div>
