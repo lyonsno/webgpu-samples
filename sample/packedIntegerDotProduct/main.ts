@@ -668,6 +668,7 @@ async function main() {
         marker.textContent = `${
           samePlace ? 'Best + inspecting' : 'Best match'
         } · ${rms(best.error)}`;
+      else marker.textContent = `Inspecting · ${rms(error)}`;
       marker.style.left = `${(point[0] + 1) * 50}%`;
       marker.style.top = `calc(${(1 - point[1]) * 50}% - ${offset}px)`;
     }

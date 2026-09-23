@@ -207,12 +207,22 @@
         font-size: 12px;
       }
       #comparison-marker {
-        width: 10px;
-        height: 10px;
-        border: 3px solid white;
-        box-shadow: 0 0 0 1px black;
-        border-style: dashed;
-        transform: translate(-50%, -50%);
+        transform: translate(8px, -50%);
+        color: #111;
+        background: #fff;
+        border: 1px dashed #111;
+        border-radius: 3px;
+        padding: 3px 5px;
+        font-size: 12px;
+        white-space: nowrap;
+      }
+      #comparison-marker::before {
+        content: '';
+        position: absolute;
+        right: 100%;
+        top: 50%;
+        width: 8px;
+        border-top: 2px dashed white;
       }
       #best-marker::after {
         content: '';
@@ -430,11 +440,7 @@
             aria-label="Error landscape. Drag or use arrow keys to orbit; click a surface point to compare. Home resets the view."
           ></canvas>
           <span id="best-marker" hidden>Best match</span>
-          <span
-            id="comparison-marker"
-            hidden
-            aria-label="Selected comparison"
-          ></span>
+          <span id="comparison-marker" hidden></span>
         </div>
         <figcaption>
           Low valleys are closer matches; high peaks differ more. Drag to orbit
