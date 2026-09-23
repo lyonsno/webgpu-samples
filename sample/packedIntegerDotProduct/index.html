@@ -57,6 +57,25 @@
         padding: 16px;
         margin: 20px 0 12px;
       }
+      .search-layout {
+        display: grid;
+        grid-template-areas: 'intro picture' 'controls picture';
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-rows: auto 1fr;
+        gap: 0 20px;
+      }
+      .search-intro {
+        grid-area: intro;
+      }
+      .search-picture {
+        grid-area: picture;
+      }
+      .search-controls {
+        grid-area: controls;
+      }
+      .search-picture .comparison-key {
+        margin-left: 12px;
+      }
       .patches {
         display: grid;
         grid-template-columns: repeat(2, 116px) minmax(0, 1fr);
@@ -153,7 +172,7 @@
       }
       .views {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 20px;
         margin: 20px 0;
       }
@@ -316,6 +335,11 @@
         margin: 6px 0 0;
       }
       @media (max-width: 800px) {
+        .search-layout {
+          grid-template-areas: 'intro' 'picture' 'controls';
+          grid-template-columns: 1fr;
+          gap: 16px;
+        }
         .views {
           grid-template-columns: 1fr;
         }
@@ -340,88 +364,95 @@
       corresponding values, and adds the four products.
     </p>
     <section class="comparison-step" aria-labelledby="comparison-step-title">
-      <h2 id="comparison-step-title">Find this cutout in the picture</h2>
-      <div class="patches">
-        <figure>
-          <figcaption>Cutout to find</figcaption>
-          <canvas
-            id="template"
-            width="32"
-            height="32"
-            aria-label="Cutout to find"
-          ></canvas>
-        </figure>
-        <figure>
-          <figcaption>
-            <span class="key comparison-key" aria-hidden="true"></span>Picture
-            patch you’re inspecting
-          </figcaption>
-          <canvas
-            id="comparison"
-            width="32"
-            height="32"
-            aria-label="Patch at the inspected location"
-          ></canvas>
-        </figure>
-        <div class="score-card">
-          <h3>→ Pixel difference</h3>
-          <span id="selected-score">Calculating…</span>
-          <p>0 = identical pixels</p>
+      <div class="search-layout">
+        <div class="search-intro">
+          <h2 id="comparison-step-title">Find this cutout in the picture</h2>
+          <div class="patches">
+            <figure>
+              <figcaption>Cutout to find</figcaption>
+              <canvas
+                id="template"
+                width="32"
+                height="32"
+                aria-label="Cutout to find"
+              ></canvas>
+            </figure>
+            <figure>
+              <figcaption>
+                <span class="key comparison-key" aria-hidden="true"></span
+                >Picture patch you’re inspecting
+              </figcaption>
+              <canvas
+                id="comparison"
+                width="32"
+                height="32"
+                aria-label="Patch at the inspected location"
+              ></canvas>
+            </figure>
+            <div class="score-card">
+              <h3>→ Pixel difference</h3>
+              <span id="selected-score">Calculating…</span>
+              <p>0 = identical pixels</p>
+            </div>
+          </div>
         </div>
-      </div>
-      <p>
-        The GPU gets the cutout’s pixels, but not its location. It searches the
-        picture using packed dot products to help calculate a difference score
-        at each candidate location. The smallest score identifies the match.
-      </p>
-      <div class="answer-line">
-        <p id="answer" role="status">Searching the picture…</p>
-        <button id="inspect-best" type="button">Inspect best match</button>
-      </div>
-      <div class="controls comparison-actions">
-        <button id="next" type="button">Try another cutout</button>
-        <label
-          >Inspect x
-          <input
-            id="x"
-            aria-label="Inspected patch x"
-            type="number"
-            min="0"
-            max="480"
-            step="4"
-            value="320"
-        /></label>
-        <label
-          >y
-          <input
-            id="y"
-            aria-label="Inspected patch y"
-            type="number"
-            min="0"
-            max="480"
-            step="4"
-            value="248"
-        /></label>
-        <button id="use-template" type="button">
-          Search for this patch instead
-        </button>
+        <figure class="search-picture">
+          <canvas
+            id="source"
+            width="512"
+            height="512"
+            aria-label="Search image. Click to inspect a patch."
+          ></canvas>
+          <figcaption>
+            <span class="key best-key" aria-hidden="true"></span>Best match
+            <span class="key comparison-key" aria-hidden="true"></span
+            >Inspecting
+          </figcaption>
+        </figure>
+        <div class="search-controls">
+          <p>
+            The GPU gets the cutout’s pixels, but not its location. It searches
+            the picture using packed dot products to help calculate a difference
+            score at each candidate location. The smallest score identifies the
+            match.
+          </p>
+          <div class="answer-line">
+            <p id="answer" role="status">Searching the picture…</p>
+            <button id="inspect-best" type="button">Inspect best match</button>
+          </div>
+          <div class="controls comparison-actions">
+            <button id="next" type="button">Try another cutout</button>
+            <label
+              >Inspect x
+              <input
+                id="x"
+                aria-label="Inspected patch x"
+                type="number"
+                min="0"
+                max="480"
+                step="4"
+                value="320"
+            /></label>
+            <label
+              >y
+              <input
+                id="y"
+                aria-label="Inspected patch y"
+                type="number"
+                min="0"
+                max="480"
+                step="4"
+                value="248"
+            /></label>
+            <button id="use-template" type="button">
+              Search for this patch instead
+            </button>
+          </div>
+        </div>
       </div>
     </section>
     <p>Click the picture or either score view to inspect another patch.</p>
     <div class="views">
-      <figure>
-        <h2>Picture</h2>
-        <canvas
-          id="source"
-          width="512"
-          height="512"
-          aria-label="Search image. Click to inspect a patch."
-        ></canvas>
-        <figcaption>
-          <span class="key best-key" aria-hidden="true"></span>Best match
-          <span class="key comparison-key" aria-hidden="true"></span>Inspecting
-        </figcaption>
-      </figure>
       <figure>
         <h2>Pixel difference at each position</h2>
         <div id="heatmap-plot">
