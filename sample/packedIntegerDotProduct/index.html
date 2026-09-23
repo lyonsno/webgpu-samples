@@ -341,11 +341,6 @@
     </p>
     <section class="comparison-step" aria-labelledby="comparison-step-title">
       <h2 id="comparison-step-title">Find this cutout in the picture</h2>
-      <p>
-        The GPU gets the cutout’s pixels, but not its location. It searches the
-        picture using packed dot products to help calculate a difference score
-        at each candidate location. The smallest score identifies the match.
-      </p>
       <div class="patches">
         <figure>
           <figcaption>Cutout to find</figcaption>
@@ -374,6 +369,11 @@
           <p>0 = identical pixels</p>
         </div>
       </div>
+      <p>
+        The GPU gets the cutout’s pixels, but not its location. It searches the
+        picture using packed dot products to help calculate a difference score
+        at each candidate location. The smallest score identifies the match.
+      </p>
       <div class="answer-line">
         <p id="answer" role="status">Searching the picture…</p>
         <button id="inspect-best" type="button">Inspect best match</button>
