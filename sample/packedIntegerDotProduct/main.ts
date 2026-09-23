@@ -19,7 +19,7 @@ async function main() {
   const result = document.querySelector('#result')!;
   function unavailable(message: string) {
     document.querySelector('#answer')!.textContent = message;
-    document.querySelector('#best-error')!.textContent = 'Unavailable';
+    document.querySelector('#selected-score')!.textContent = 'Unavailable';
     document.querySelectorAll('button, input').forEach((control) => {
       control.setAttribute('disabled', '');
     });
@@ -225,6 +225,13 @@ async function main() {
     templateX = settings.x;
     templateY = settings.y;
     update();
+  };
+  document.querySelector<HTMLButtonElement>('#inspect-best')!.onclick = () => {
+    if (!scores.length) return;
+    const best = findBestMatch(scores);
+    settings.x = (best.index % gridSize) * stride;
+    settings.y = Math.floor(best.index / gridSize) * stride;
+    present();
   };
   for (const view of [source, heatmap])
     view.onclick = (event) => {
@@ -434,27 +441,22 @@ async function main() {
       (best.count > 1
         ? ` ${best.count} locations tie; one is highlighted.`
         : '');
-    document.querySelector('#best-error')!.textContent =
-      best.error === 0
-        ? 'Identical pixels · zero difference'
-        : `Difference: ${rms(best.error)} / 255`;
-    document.querySelector('#comparison-error')!.textContent =
-      `(${x}, ${y}) · ` +
-      (error === best.error
-        ? 'Also a best match'
-        : `Difference: ${rms(error)} / 255`);
-    result.textContent = `Selected comparison at (${x}, ${y}): ${
-      error === best.error
-        ? 'matches just as well as the highlighted answer.'
-        : `a worse match, with ${rms(
-            error
-          )} grayscale levels of difference (RMS).`
-    }`;
+    document.querySelector(
+      '#comparison-position'
+    )!.textContent = `Position in picture: (${x}, ${y})`;
+    document.querySelector(
+      '#selected-score'
+    )!.textContent = `Pixel difference: ${rms(error)}`;
+    document.querySelector(
+      '#map-selection'
+    )!.textContent = `Inspecting (${x}, ${y}) · ${rms(
+      error
+    )} pixel difference.`;
+    result.textContent = `The score at (${x}, ${y}) appears at the dashed white marker in both score views below.`;
 
     ctx.putImageData(rgba, 0, 0);
     for (const [id, px, py] of [
       ['template', templateX, templateY],
-      ['match', bestX, bestY],
       ['comparison', x, y],
       ['picture-detail', x, y],
       ['cutout-detail', templateX, templateY],
@@ -515,6 +517,7 @@ async function main() {
     if (running || !scores.length) return;
     const { x, y, packed } = settings;
     const error = scores[(y / stride) * gridSize + x / stride];
+    document.querySelector('#lesson-score')!.textContent = rms(error);
     const groupIndex =
       document.querySelector<HTMLInputElement>('#group-index')!.valueAsNumber;
     const gx = (groupIndex % (patchSize / 4)) * 4,
@@ -533,6 +536,14 @@ async function main() {
     const lanes = (word: number) => [0, 1, 2, 3].map((i) => unpack(word, i));
     const a = lanes(p),
       b = lanes(t);
+    const differences = a.map((value, i) => value - b[i]);
+    const squared = differences.map((value) => value * value);
+    document.querySelector('#direct')!.textContent =
+      `Pixel differences: ${differences.join(', ')}\n` +
+      `Squared differences: ${squared.join(' + ')} = ${squared.reduce(
+        (sum, value) => sum + value,
+        0
+      )}`;
     const dot = (a: number[], b: number[]) =>
       a.reduce((sum, v, i) => sum + v * b[i], 0);
     const hex = (v: number) =>
