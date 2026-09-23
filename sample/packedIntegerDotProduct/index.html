@@ -59,8 +59,8 @@
       }
       .patches {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 20px;
+        grid-template-columns: repeat(2, 116px) minmax(0, 1fr);
+        gap: 16px;
         margin-top: 12px;
       }
       .patches canvas {
@@ -93,8 +93,26 @@
       }
       #selected-score {
         display: block;
-        font-size: 1.15rem;
-        font-weight: 650;
+        font-size: 2rem;
+        font-weight: 700;
+      }
+      .score-card p {
+        margin: 6px 0;
+      }
+      .answer-line {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px;
+        border-top: 1px solid #8886;
+        margin-top: 16px;
+        padding-top: 10px;
+      }
+      .answer-line p {
+        margin: 0;
+      }
+      .comparison-actions {
+        margin-bottom: 0;
       }
       .previews {
         display: flex;
@@ -140,6 +158,30 @@
       }
       #heatmap {
         background: #8882;
+      }
+      #heatmap-plot {
+        position: relative;
+      }
+      .map-label {
+        position: absolute;
+        pointer-events: none;
+        padding: 2px 5px;
+        font-size: 12px;
+        white-space: nowrap;
+        border-radius: 3px;
+        left: clamp(75px, var(--marker-x), calc(100% - 75px));
+        top: var(--marker-y);
+      }
+      #map-best-label {
+        color: white;
+        background: #820055;
+        transform: translate(-50%, calc(-100% - 20px));
+      }
+      #map-comparison-label {
+        color: #111;
+        background: white;
+        border: 1px dashed #111;
+        transform: translate(-50%, 20px);
       }
       #plot {
         position: relative;
@@ -232,6 +274,24 @@
         border: 1px solid #8886;
         margin-bottom: 4px;
       }
+      .pixel-math {
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+      .pixel-math th {
+        text-align: left;
+        padding-right: 8px;
+      }
+      .pixel-math td {
+        min-width: 38px;
+        padding: 4px 2px;
+        text-align: center;
+      }
+      .gray-swatch {
+        display: block;
+        padding: 5px 1px;
+        border: 1px solid #8886;
+      }
       .equation {
         padding: 12px;
         background: #8881;
@@ -247,7 +307,7 @@
       }
       @media (max-width: 500px) {
         .patches {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
+          grid-template-columns: repeat(2, minmax(0, 116px));
         }
         .score-card {
           grid-column: 1 / -1;
@@ -265,7 +325,7 @@
       tells us where it belongs.
     </p>
     <section class="comparison-step" aria-labelledby="comparison-step-title">
-      <h2 id="comparison-step-title">Two patches → one pixel difference</h2>
+      <h2 id="comparison-step-title">Two patches → one difference score</h2>
       <div class="patches">
         <figure>
           <figcaption>Cutout to find</figcaption>
@@ -275,12 +335,11 @@
             height="32"
             aria-label="Cutout to find"
           ></canvas>
-          <button id="next" type="button">Try another cutout</button>
         </figure>
         <figure>
           <figcaption>
-            <span class="key comparison-key" aria-hidden="true"></span>Patch
-            you’re inspecting
+            <span class="key comparison-key" aria-hidden="true"></span>Inspected
+            patch
           </figcaption>
           <canvas
             id="comparison"
@@ -288,41 +347,44 @@
             height="32"
             aria-label="Patch at the inspected location"
           ></canvas>
-          <p id="comparison-position"></p>
-          <div class="controls">
-            <label
-              >x
-              <input
-                id="x"
-                aria-label="Inspected patch x"
-                type="number"
-                min="0"
-                max="480"
-                step="4"
-                value="320"
-            /></label>
-            <label
-              >y
-              <input
-                id="y"
-                aria-label="Inspected patch y"
-                type="number"
-                min="0"
-                max="480"
-                step="4"
-                value="248"
-            /></label>
-          </div>
-          <button id="use-template" type="button">
-            Search for this patch instead
-          </button>
         </figure>
         <div class="score-card">
-          <h2>This comparison</h2>
+          <h3>→ Difference for inspected patch</h3>
           <span id="selected-score">Calculating…</span>
-          <p>0 means identical pixels. Larger means more different.</p>
-          <p id="result" aria-live="polite"></p>
+          <p>0 = identical pixels</p>
         </div>
+      </div>
+      <div class="answer-line">
+        <p id="answer" role="status">Searching the picture…</p>
+        <button id="inspect-best" type="button">Inspect best match</button>
+      </div>
+      <div class="controls comparison-actions">
+        <button id="next" type="button">Try another cutout</button>
+        <label
+          >Inspect x
+          <input
+            id="x"
+            aria-label="Inspected patch x"
+            type="number"
+            min="0"
+            max="480"
+            step="4"
+            value="320"
+        /></label>
+        <label
+          >y
+          <input
+            id="y"
+            aria-label="Inspected patch y"
+            type="number"
+            min="0"
+            max="480"
+            step="4"
+            value="248"
+        /></label>
+        <button id="use-template" type="button">
+          Search for this patch instead
+        </button>
       </div>
     </section>
     <p>Click the picture or either score view to inspect another patch.</p>
@@ -342,16 +404,19 @@
       </figure>
       <figure>
         <h2>Pixel difference at each position</h2>
-        <canvas
-          id="heatmap"
-          width="512"
-          height="512"
-          aria-label="Error heatmap in the same image coordinates. Click to compare a location."
-        ></canvas>
+        <div id="heatmap-plot">
+          <canvas
+            id="heatmap"
+            width="512"
+            height="512"
+            aria-label="Error heatmap in the same image coordinates. Click to compare a location."
+          ></canvas>
+          <span id="map-best-label" class="map-label" hidden></span>
+          <span id="map-comparison-label" class="map-label" hidden></span>
+        </div>
         <figcaption>
-          <strong id="map-selection"></strong> Each point compares the whole
-          cutout with one 32×32 picture patch. The blank rim has no complete
-          patch to compare.
+          Each point compares the whole cutout with one 32×32 picture patch. The
+          blank rim has no complete patch to compare.
         </figcaption>
         <span class="scale" aria-hidden="true"></span>
         <p>0: identical pixels → larger difference</p>
@@ -378,8 +443,6 @@
         <button id="reset-view" type="button">Reset view</button>
       </figure>
     </div>
-    <p id="answer" role="status">Searching the picture…</p>
-    <button id="inspect-best" type="button">Inspect best match</button>
     <p>
       This is <em>template matching</em>: the GPU checks 14,641 overlapping
       32×32 patches at four-pixel steps. The cutout comes from this picture, so
@@ -408,18 +471,6 @@
       </p>
       <div class="previews">
         <div>
-          Inspected patch
-          <div class="patch-preview">
-            <canvas
-              id="picture-detail"
-              width="32"
-              height="32"
-              aria-label="Compared patch with highlighted four-pixel group"
-            ></canvas>
-            <span class="group-highlight" aria-hidden="true"></span>
-          </div>
-        </div>
-        <div>
           Cutout
           <div class="patch-preview">
             <canvas
@@ -431,8 +482,32 @@
             <span class="group-highlight" aria-hidden="true"></span>
           </div>
         </div>
+        <div>
+          Inspected patch
+          <div class="patch-preview">
+            <canvas
+              id="picture-detail"
+              width="32"
+              height="32"
+              aria-label="Compared patch with highlighted four-pixel group"
+            ></canvas>
+            <span class="group-highlight" aria-hidden="true"></span>
+          </div>
+        </div>
       </div>
-      <pre id="direct" class="equation"></pre>
+      <table class="pixel-math" aria-label="Four selected pixel pairs">
+        <thead>
+          <tr>
+            <th scope="col"></th>
+            <th scope="col">1</th>
+            <th scope="col">2</th>
+            <th scope="col">3</th>
+            <th scope="col">4</th>
+          </tr>
+        </thead>
+        <tbody id="pixel-math"></tbody>
+      </table>
+      <p id="direct" class="equation"></p>
       <h3>How the GPU handles four pixel pairs at once</h3>
       <p>
         The GPU computes the same squared error using
@@ -446,12 +521,12 @@
         Squared error = patch’s sum of squares + cutout’s sum of squares − twice
         their dot product.
       </p>
-      <pre id="group"></pre>
       <p>
         Four pixel pairs make one packed dot. A full patch has 1,024 pixels, so
         it needs <strong>256 packed dots</strong> for one score. Repeating that
         across 14,641 positions produces the map; the smallest score wins.
       </p>
+      <p id="full-score" class="equation"></p>
       <details>
         <summary>See the signed bytes and packed words</summary>
         <p>
@@ -481,6 +556,7 @@
           adds them:
         </p>
         <pre id="dot" class="equation"></pre>
+        <pre id="group" class="equation"></pre>
       </details>
     </section>
     <details>

@@ -16,7 +16,6 @@ import TimestampQueryManager from '../timestampQuery/TimestampQueryManager';
 import { quitIfWebGPUNotAvailableOrMissingFeatures } from '../util';
 
 async function main() {
-  const result = document.querySelector('#result')!;
   function unavailable(message: string) {
     document.querySelector('#answer')!.textContent = message;
     document.querySelector('#selected-score')!.textContent = 'Unavailable';
@@ -437,22 +436,35 @@ async function main() {
     document.querySelector('#answer')!.textContent =
       `Found at (${bestX}, ${bestY}) — ${
         best.error === 0 ? 'an exact match' : 'the closest match'
-      }.` +
+      }; difference score ${rms(best.error)}.` +
       (best.count > 1
         ? ` ${best.count} locations tie; one is highlighted.`
         : '');
-    document.querySelector(
-      '#comparison-position'
-    )!.textContent = `Position in picture: (${x}, ${y})`;
-    document.querySelector(
-      '#selected-score'
-    )!.textContent = `Pixel difference: ${rms(error)}`;
-    document.querySelector(
-      '#map-selection'
-    )!.textContent = `Inspecting (${x}, ${y}) · ${rms(
-      error
-    )} pixel difference.`;
-    result.textContent = `The score at (${x}, ${y}) appears at the dashed white marker in both score views below.`;
+    document.querySelector('#selected-score')!.textContent = rms(error);
+    const samePlace = bestX === x && bestY === y;
+    for (const [id, px, py, label] of [
+      ['map-best-label', bestX, bestY, `Best · ${rms(best.error)}`],
+      [
+        'map-comparison-label',
+        x,
+        y,
+        samePlace
+          ? `Best + inspecting · ${rms(error)}`
+          : `Inspecting · ${rms(error)}`,
+      ],
+    ] as const) {
+      const marker = document.querySelector<HTMLElement>(`#${id}`)!;
+      marker.hidden = samePlace && id === 'map-best-label';
+      marker.textContent = label;
+      marker.style.setProperty(
+        '--marker-x',
+        `${((px + patchSize / 2) / imageSize) * 100}%`
+      );
+      marker.style.setProperty(
+        '--marker-y',
+        `${((py + patchSize / 2) / imageSize) * 100}%`
+      );
+    }
 
     ctx.putImageData(rgba, 0, 0);
     for (const [id, px, py] of [
@@ -515,7 +527,7 @@ async function main() {
 
   function explain() {
     if (running || !scores.length) return;
-    const { x, y, packed } = settings;
+    const { x, y } = settings;
     const error = scores[(y / stride) * gridSize + x / stride];
     document.querySelector('#lesson-score')!.textContent = rms(error);
     const groupIndex =
@@ -538,12 +550,34 @@ async function main() {
       b = lanes(t);
     const differences = a.map((value, i) => value - b[i]);
     const squared = differences.map((value) => value * value);
-    document.querySelector('#direct')!.textContent =
-      `Pixel differences: ${differences.join(', ')}\n` +
-      `Squared differences: ${squared.join(' + ')} = ${squared.reduce(
-        (sum, value) => sum + value,
-        0
-      )}`;
+    const pixelRow = (label: string, values: number[], grayscale = false) =>
+      `<tr><th scope="row">${label}</th>${values
+        .map((value) =>
+          grayscale
+            ? `<td><span class="gray-swatch" style="background:rgb(${value} ${value} ${value});color:${
+                value < 128 ? 'white' : 'black'
+              }">${value}</span></td>`
+            : `<td>${value.toLocaleString('en-US')}</td>`
+        )
+        .join('')}</tr>`;
+    document.querySelector('#pixel-math')!.innerHTML =
+      pixelRow(
+        'Cutout',
+        b.map((value) => value + 128),
+        true
+      ) +
+      pixelRow(
+        'Inspected',
+        a.map((value) => value + 128),
+        true
+      ) +
+      pixelRow('Difference<br><small>inspected − cutout</small>', differences) +
+      pixelRow('Squared', squared);
+    document.querySelector(
+      '#direct'
+    )!.textContent = `These four pairs contribute ${squared
+      .reduce((sum, value) => sum + value, 0)
+      .toLocaleString('en-US')} to the total squared error.`;
     const dot = (a: number[], b: number[]) =>
       a.reduce((sum, v, i) => sum + v * b[i], 0);
     const hex = (v: number) =>
@@ -576,13 +610,14 @@ async function main() {
       b
     )} − 2 × (${dot(a, b)}) = ${
       dot(a, a) + dot(b, b) - 2 * dot(a, b)
-    } to the error.\nFull patch error (GPU ${
-      packed ? 'packed' : 'scalar'
-    }): ${error.toLocaleString('en-US')}. √(${error.toLocaleString(
+    } to the error.`;
+    document.querySelector(
+      '#full-score'
+    )!.textContent = `Whole patch: ${error.toLocaleString(
       'en-US'
-    )} / 1024) = ${rms(
-      error
-    )} grayscale levels → this spot’s color and height.`;
+    )} total squared error → √(${error.toLocaleString(
+      'en-US'
+    )} / 1,024) = ${rms(error)} difference score.`;
   }
 
   function render() {
@@ -593,6 +628,7 @@ async function main() {
     const bestX = (best.index % gridSize) * stride,
       bestY = Math.floor(best.index / gridSize) * stride;
     const error = scores[(y / stride) * gridSize + x / stride];
+    const samePlace = bestX === x && bestY === y;
     const aspect = canvas.width / canvas.height;
     matrix = mat4.multiply(
       mat4.ortho(-1.65 * aspect, 1.65 * aspect, -1.65, 1.65, 0.1, 10),
@@ -627,7 +663,11 @@ async function main() {
         matrix
       );
       const marker = document.querySelector<HTMLElement>(`#${id}-marker`)!;
-      marker.hidden = false;
+      marker.hidden = samePlace && id === 'comparison';
+      if (id === 'best')
+        marker.textContent = `${
+          samePlace ? 'Best + inspecting' : 'Best match'
+        } · ${rms(best.error)}`;
       marker.style.left = `${(point[0] + 1) * 50}%`;
       marker.style.top = `calc(${(1 - point[1]) * 50}% - ${offset}px)`;
     }
