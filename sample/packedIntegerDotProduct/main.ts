@@ -1,6 +1,4 @@
-import { mat4, vec3 } from 'wgpu-matrix';
 import packedWGSL from './packed.wgsl';
-import surfaceWGSL from './surface.wgsl';
 import {
   packPixels,
   unpack,
@@ -120,70 +118,6 @@ async function main() {
     })
   );
 
-  const canvas = document.querySelector<HTMLCanvasElement>('#surface')!;
-  const context = canvas.getContext('webgpu')!;
-  const format = navigator.gpu.getPreferredCanvasFormat();
-  context.configure({ device, format, alphaMode: 'opaque' });
-  const viewBuffer = buffer(
-    80,
-    GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
-  );
-  const surfaceModule = device.createShaderModule({ code: surfaceWGSL });
-  const renderPipeline = device.createRenderPipeline({
-    layout: 'auto',
-    vertex: { module: surfaceModule, entryPoint: 'vertexMain' },
-    fragment: {
-      module: surfaceModule,
-      entryPoint: 'fragmentMain',
-      targets: [{ format }, { format: 'r32uint' }],
-    },
-    primitive: { topology: 'triangle-list' },
-    depthStencil: {
-      format: 'depth24plus',
-      depthWriteEnabled: true,
-      depthCompare: 'less',
-    },
-  });
-  const renderGroup = device.createBindGroup({
-    layout: renderPipeline.getBindGroupLayout(0),
-    entries: [errors, viewBuffer].map((buffer, binding) => ({
-      binding,
-      resource: { buffer },
-    })),
-  });
-  let depth: GPUTexture, picking: GPUTexture;
-  let matrix = mat4.identity();
-  let yaw = 0.36,
-    elevation = 0.63;
-  const resize = () => {
-    const width = Math.max(
-      1,
-      Math.round(canvas.clientWidth * devicePixelRatio)
-    );
-    const height = Math.max(
-      1,
-      Math.round(canvas.clientHeight * devicePixelRatio)
-    );
-    if (depth && canvas.width === width && canvas.height === height)
-      return false;
-    canvas.width = width;
-    canvas.height = height;
-    depth?.destroy();
-    picking?.destroy();
-    depth = device.createTexture({
-      size: [canvas.width, canvas.height],
-      format: 'depth24plus',
-      usage: GPUTextureUsage.RENDER_ATTACHMENT,
-    });
-    picking = device.createTexture({
-      size: [width, height],
-      format: 'r32uint',
-      usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
-    });
-    return true;
-  };
-  resize();
-
   const settings = {
     packed: true,
     x: 320,
@@ -244,108 +178,6 @@ async function main() {
       present();
     };
 
-  // Drag or arrow keys orbit; a click reads the visible surface's candidate ID.
-  let frame = 0,
-    pickRequest = 0;
-  let drag:
-    | {
-        id: number;
-        x: number;
-        y: number;
-        yaw: number;
-        elevation: number;
-        moved: boolean;
-      }
-    | undefined;
-  canvas.onpointerdown = (event) => {
-    if (!event.isPrimary || event.button !== 0 || drag) return;
-    canvas.focus({ preventScroll: true });
-    canvas.setPointerCapture(event.pointerId);
-    drag = {
-      id: event.pointerId,
-      x: event.clientX,
-      y: event.clientY,
-      yaw,
-      elevation,
-      moved: false,
-    };
-  };
-  canvas.onpointermove = (event) => {
-    if (drag?.id !== event.pointerId) return;
-    const dx = event.clientX - drag.x,
-      dy = event.clientY - drag.y;
-    drag.moved ||= Math.hypot(dx, dy) > 4;
-    if (!drag.moved) return;
-    yaw = drag.yaw - dx * 0.01;
-    elevation = Math.max(0.15, Math.min(1.5, drag.elevation + dy * 0.01));
-    render();
-  };
-  canvas.onpointerup = (event) => {
-    if (drag?.id !== event.pointerId) return;
-    const click = !drag.moved;
-    drag = undefined;
-    canvas.releasePointerCapture(event.pointerId);
-    if (click) pick(event);
-  };
-  canvas.onlostpointercapture = canvas.onpointercancel = () => {
-    drag = undefined;
-  };
-  function resetView() {
-    yaw = 0.36;
-    elevation = 0.63;
-    render();
-  }
-  document.querySelector<HTMLButtonElement>('#reset-view')!.onclick = resetView;
-  canvas.onkeydown = (event) => {
-    if (event.key === 'Home') resetView();
-    else if (event.key.startsWith('Arrow')) {
-      yaw += { ArrowLeft: 0.1, ArrowRight: -0.1 }[event.key] ?? 0;
-      elevation = Math.max(
-        0.15,
-        Math.min(
-          1.5,
-          elevation + ({ ArrowUp: 0.1, ArrowDown: -0.1 }[event.key] ?? 0)
-        )
-      );
-      render();
-    } else return;
-    event.preventDefault();
-  };
-  async function pick(event: PointerEvent) {
-    if (running || !scores.length) return;
-    const rect = canvas.getBoundingClientRect();
-    const x = Math.floor(
-      ((event.clientX - rect.left) / rect.width) * canvas.width
-    );
-    const y = Math.floor(
-      ((event.clientY - rect.top) / rect.height) * canvas.height
-    );
-    if (x < 0 || y < 0 || x >= canvas.width || y >= canvas.height) return;
-    const submittedFrame = frame,
-      request = ++pickRequest;
-    const pixel = buffer(
-      256,
-      GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
-    );
-    try {
-      const encoder = device.createCommandEncoder();
-      encoder.copyTextureToBuffer(
-        { texture: picking, origin: [x, y] },
-        { buffer: pixel, bytesPerRow: 256 },
-        [1, 1]
-      );
-      device.queue.submit([encoder.finish()]);
-      await pixel.mapAsync(GPUMapMode.READ);
-      const id = new Uint32Array(pixel.getMappedRange())[0];
-      if (!id || running || submittedFrame !== frame || request !== pickRequest)
-        return;
-      settings.x = ((id - 1) % gridSize) * stride;
-      settings.y = Math.floor((id - 1) / gridSize) * stride;
-      present();
-    } finally {
-      pixel.destroy();
-    }
-  }
   document.querySelector<HTMLInputElement>('#group-index')!.oninput = () =>
     explain();
 
@@ -367,7 +199,7 @@ async function main() {
     document.querySelector('#timing')!.textContent =
       'GPU timestamps unavailable on this device.';
 
-  // Serialize readback; publish the answer, image and landscape for one input revision.
+  // Serialize readback; publish the answer, picture and score map for one input revision.
   let revision = 0,
     running = false;
   let scores = new Int32Array(0);
@@ -428,6 +260,7 @@ async function main() {
       document.querySelector<HTMLInputElement>(`#${axis}`)!.value = String(
         settings[axis]
       );
+    document.querySelector('#position')!.textContent = `${x}, ${y}`;
     // Select the answer from computed scores, without using the cutout's origin.
     const best = findBestMatch(scores);
     const bestX = (best.index % gridSize) * stride;
@@ -488,7 +321,7 @@ async function main() {
           patchSize
         );
     }
-    // Same fixed RMS/255 color scale as the GPU landscape, without contours.
+    // Fixed RMS/255 color scale for the score map.
     for (let i = 0; i < scores.length; i++) {
       const error = Math.sqrt(scores[i] / patchSize ** 2) / 255;
       colors.data.set(
@@ -522,7 +355,6 @@ async function main() {
     }
 
     explain();
-    render();
   }
 
   function explain() {
@@ -620,91 +452,6 @@ async function main() {
     )}.`;
   }
 
-  function render() {
-    if (running || !scores.length) return;
-    frame++;
-    const { x, y } = settings;
-    document.querySelector('#position')!.textContent = `${x}, ${y}`;
-    const best = findBestMatch(scores);
-    const bestX = (best.index % gridSize) * stride,
-      bestY = Math.floor(best.index / gridSize) * stride;
-    const error = scores[(y / stride) * gridSize + x / stride];
-    const samePlace = bestX === x && bestY === y;
-    const aspect = canvas.width / canvas.height;
-    matrix = mat4.multiply(
-      mat4.ortho(-1.65 * aspect, 1.65 * aspect, -1.65, 1.65, 0.1, 10),
-      mat4.lookAt(
-        [
-          4 * Math.cos(elevation) * Math.sin(yaw),
-          0.3 + 4 * Math.sin(elevation),
-          4 * Math.cos(elevation) * Math.cos(yaw),
-        ],
-        [0, 0.3, 0],
-        [0, 1, 0]
-      )
-    );
-    device.queue.writeBuffer(viewBuffer, 0, matrix.buffer as ArrayBuffer);
-
-    device.queue.writeBuffer(
-      viewBuffer,
-      64,
-      new Uint32Array([x / stride, y / stride, bestX / stride, bestY / stride])
-    );
-    // Overlay the markers so a foreground ridge cannot hide either location.
-    for (const [id, px, py, score, offset] of [
-      ['best', bestX, bestY, best.error, 16],
-      ['comparison', x, y, error, 0],
-    ] as const) {
-      const point = vec3.transformMat4(
-        [
-          px / stride / 60 - 1,
-          (Math.sqrt(score / patchSize ** 2) / 255) * 1.5,
-          py / stride / 60 - 1,
-        ],
-        matrix
-      );
-      const marker = document.querySelector<HTMLElement>(`#${id}-marker`)!;
-      marker.hidden = samePlace && id === 'comparison';
-      if (id === 'best')
-        marker.textContent = `${
-          samePlace ? 'Best + inspecting' : 'Best match'
-        } · ${rms(best.error)}`;
-      else marker.textContent = `Inspecting · ${rms(error)}`;
-      marker.style.left = `${(point[0] + 1) * 50}%`;
-      marker.style.top = `calc(${(1 - point[1]) * 50}% - ${offset}px)`;
-    }
-    const renderEncoder = device.createCommandEncoder();
-    const render = renderEncoder.beginRenderPass({
-      colorAttachments: [
-        {
-          view: context.getCurrentTexture().createView(),
-          clearValue: [0.035, 0.045, 0.065, 1],
-          loadOp: 'clear',
-          storeOp: 'store',
-        },
-        {
-          view: picking.createView(),
-          clearValue: [0, 0, 0, 0],
-          loadOp: 'clear',
-          storeOp: 'store',
-        },
-      ],
-      depthStencilAttachment: {
-        view: depth.createView(),
-        depthClearValue: 1,
-        depthLoadOp: 'clear',
-        depthStoreOp: 'store',
-      },
-    });
-    render.setPipeline(renderPipeline);
-    render.setBindGroup(0, renderGroup);
-    render.draw(6, (gridSize - 1) ** 2);
-    render.end();
-    device.queue.submit([renderEncoder.finish()]);
-  }
-  window.addEventListener('resize', () => {
-    if (resize()) render();
-  });
   update();
 }
 main();
