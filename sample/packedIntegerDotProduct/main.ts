@@ -613,17 +613,18 @@ async function main() {
     } to the error.`;
     document.querySelector(
       '#full-score'
-    )!.textContent = `Whole patch: ${error.toLocaleString(
+    )!.textContent = `Across all 1,024 pixel pairs, the total squared error is ${error.toLocaleString(
       'en-US'
-    )} total squared error → √(${error.toLocaleString(
-      'en-US'
-    )} / 1,024) = ${rms(error)} difference score.`;
+    )}.\nDifference score = √(${error.toLocaleString('en-US')} ÷ 1,024) = ${rms(
+      error
+    )}.`;
   }
 
   function render() {
     if (running || !scores.length) return;
     frame++;
     const { x, y } = settings;
+    document.querySelector('#position')!.textContent = `${x}, ${y}`;
     const best = findBestMatch(scores);
     const bestX = (best.index % gridSize) * stride,
       bestY = Math.floor(best.index / gridSize) * stride;

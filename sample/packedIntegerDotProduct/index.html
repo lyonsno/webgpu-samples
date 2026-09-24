@@ -78,9 +78,27 @@
       }
       .patches {
         display: grid;
-        grid-template-columns: repeat(2, 116px) minmax(0, 1fr);
+        grid-template-columns: repeat(2, minmax(0, 155px)) minmax(0, 1fr);
         gap: 16px;
         margin-top: 12px;
+      }
+      .patches button {
+        align-self: start;
+        max-width: 100%;
+        margin-top: 8px;
+      }
+      .position-editor {
+        border: 0;
+        margin-top: 8px;
+        padding: 0;
+      }
+      .position-editor summary {
+        font-size: 0.9rem;
+      }
+      .position-inputs {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
       }
       .patches canvas {
         width: 96px;
@@ -135,8 +153,8 @@
       .answer-line p {
         margin: 0;
       }
-      .comparison-actions {
-        margin-bottom: 0;
+      #full-score {
+        white-space: pre-line;
       }
       .previews {
         display: flex;
@@ -346,7 +364,7 @@
       }
       @media (max-width: 500px) {
         .patches {
-          grid-template-columns: repeat(2, minmax(0, 116px));
+          grid-template-columns: repeat(2, minmax(0, 1fr));
         }
         .score-card {
           grid-column: 1 / -1;
@@ -376,11 +394,12 @@
                 height="32"
                 aria-label="Cutout to find"
               ></canvas>
+              <button id="next" type="button">Try another cutout</button>
             </figure>
             <figure>
               <figcaption>
                 <span class="key comparison-key" aria-hidden="true"></span
-                >Picture patch you’re inspecting
+                >Inspected patch
               </figcaption>
               <canvas
                 id="comparison"
@@ -388,6 +407,38 @@
                 height="32"
                 aria-label="Patch at the inspected location"
               ></canvas>
+              <details class="position-editor">
+                <summary>
+                  Position: (<output id="position">320, 248</output>) · Edit
+                </summary>
+                <div class="position-inputs">
+                  <label
+                    >x
+                    <input
+                      id="x"
+                      aria-label="Inspected patch x"
+                      type="number"
+                      min="0"
+                      max="480"
+                      step="4"
+                      value="320"
+                  /></label>
+                  <label
+                    >y
+                    <input
+                      id="y"
+                      aria-label="Inspected patch y"
+                      type="number"
+                      min="0"
+                      max="480"
+                      step="4"
+                      value="248"
+                  /></label>
+                </div>
+              </details>
+              <button id="use-template" type="button">
+                Search for this patch instead
+              </button>
             </figure>
             <div class="score-card">
               <h3>→ Pixel difference</h3>
@@ -397,6 +448,7 @@
           </div>
         </div>
         <figure class="search-picture">
+          <p>Click the picture to inspect a patch.</p>
           <canvas
             id="source"
             width="512"
@@ -420,38 +472,10 @@
             <p id="answer" role="status">Searching the picture…</p>
             <button id="inspect-best" type="button">Inspect best match</button>
           </div>
-          <div class="controls comparison-actions">
-            <button id="next" type="button">Try another cutout</button>
-            <label
-              >Inspect x
-              <input
-                id="x"
-                aria-label="Inspected patch x"
-                type="number"
-                min="0"
-                max="480"
-                step="4"
-                value="320"
-            /></label>
-            <label
-              >y
-              <input
-                id="y"
-                aria-label="Inspected patch y"
-                type="number"
-                min="0"
-                max="480"
-                step="4"
-                value="248"
-            /></label>
-            <button id="use-template" type="button">
-              Search for this patch instead
-            </button>
-          </div>
         </div>
       </div>
     </section>
-    <p>Click the picture or either score view to inspect another patch.</p>
+    <p>Click either score view to inspect another patch.</p>
     <div class="views">
       <figure>
         <h2>Pixel difference at each position</h2>
@@ -555,6 +579,7 @@
         <tbody id="pixel-math"></tbody>
       </table>
       <p id="direct" class="equation"></p>
+      <p id="full-score" class="equation"></p>
       <h3>How the GPU handles four pixel pairs at once</h3>
       <p>
         The GPU computes the same squared error using
@@ -573,7 +598,6 @@
         it needs <strong>256 packed dots</strong> for one score. Repeating that
         across 14,641 positions produces the map; the smallest score wins.
       </p>
-      <p id="full-score" class="equation"></p>
       <details>
         <summary>See the signed bytes and packed words</summary>
         <p>
